@@ -4,23 +4,23 @@
 > Toda a arquitetura, regras de negócio, física e serviços do **Backend (Laravel)** foram desenvolvidos por mim ([Jorge Carvalho](https://github.com/carvalhojorge7)).  
 > O **Frontend** foi construído via **Vibe Coding** como interface de apoio para consumir e demonstrar as capacidades do simulador.
 
-Simulador de frotas veiculares e injetor de telemetria em tempo real para a plataforma [Traccar](https://www.traccar.org), desenvolvido em **PHP 8.2+ / Laravel 11** com física veicular realista, roteamento OSRM e streaming nativo de eventos (SSE).
+Motor de simulação veicular e ingestão contínua de telemetria para a plataforma [Traccar](https://www.traccar.org), desenvolvido em **PHP 8.2+ / Laravel 11** com física veicular realista, roteamento OSRM, concorrência via daemons e streaming de eventos (SSE).
 
 ---
 
 ## 🛠️ Arquitetura do Backend
 
-Implementado com foco em boas práticas no ecossistema **PHP / Laravel**:
+Implementado com foco em engenharia de software e boas práticas no ecossistema **PHP / Laravel**:
 
-- **Services Especializados**: Desacoplamento entre integração (`TraccarService`), roteamento (`OsrmService`) e física veicular (`SimulationEngine`).
-- **Diagnóstico via TCP Socket**: Validação de conectividade direta com medição de latência em milissegundos para as portas de ingestão GPS.
-- **Cache & Daemon em Tempo Real**: Estado sincronizado entre requisições HTTP e o daemon Artisan (`php artisan simulation:run`).
-- **Server-Sent Events (SSE)**: Streaming de telemetria e posições em tempo real para o navegador de forma leve e nativa.
-- **Segurança Operacional**: Validação e alertas para evitar conflitos ao simular dispositivos reais já cadastrados no Traccar.
+- **Services Especializados & Desacoplados**: Separação clara entre camada de integração HTTP (`TraccarService`), roteamento viário (`OsrmService`), motor de física veicular (`SimulationEngine`) e controle REST (`SimulationController`).
+- **Diagnóstico via Raw TCP Sockets**: Implementação de sondagem direta de portas via socket TCP de baixo nível com medição precisa de latência de rede em milissegundos para os protocolos GPS suportados.
+- **Concorrência & Sincronização em Tempo Real**: Loop de simulação desacoplado rodando via daemon de console CLI (`php artisan simulation:run`), sincronizado com requisições HTTP do painel através de cache atômico em memória.
+- **Pipeline de Streaming de Baixo Overhead (SSE)**: Substituição de stacks pesadas de WebSocket por Server-Sent Events com controle de buffer e reconexão automática nativa.
+- **Governança & Gestão de Risco Operacional**: Regras de validação estritas para evitar envio de telemetria a veículos reais em trânsito sem consentimento expresso.
 
 ---
 
-## 🌟 Recursos & Destaques de Engenharia
+## 🌟 Recursos de Engenharia & Funcionalidades
 
 ### 1. Conexão & Diagnóstico Fim a Fim
 - **Autenticação Híbrida**: Suporte à API REST (HTTP Basic Auth e Session Cookie) em redes locais ou túneis remotos HTTPS.
@@ -29,7 +29,7 @@ Implementado com foco em boas práticas no ecossistema **PHP / Laravel**:
 
 ### 2. Importação Segura de Dispositivos Reais do Traccar
 - **Catálogo de Dispositivos Remotos**: Lista os veículos da base com status (Online/Offline), protocolo e coordenadas.
-- **Alerta Crítico de Segurança Operacional**: Modal com confirmação obrigatória de risco para evitar disparos acidentais que possam acionar regras de bloqueio de combustível em veículos reais no trânsito.
+- **Alerta Crítico de Segurança Operacional**: Confirmação obrigatória de risco para evitar disparos acidentais que possam acionar regras de bloqueio de combustível em veículos reais no trânsito.
 
 ### 3. Gerenciamento Completo de Protocolos & Portas Customizadas
 - **Portas Editáveis em Qualquer Protocolo**: Edição liberada tanto para protocolos conhecidos (OsmAnd, Teltonika, Coban, GT06, Suntech, etc.) quanto customizados.
@@ -52,11 +52,6 @@ Implementado com foco em boas práticas no ecossistema **PHP / Laravel**:
   - Simulação de reboque/guincho sem ignição (`alarm: tow`).
   - Zona de Sombra com buffer offline em memória e descarregamento em rajada (*burst*).
 
-### 6. Mapa Interativo com Câmera Inteligente Suave
-- Mapa Leaflet dark mode integrado com camada OpenStreetMap.
-- **Navegação Suave com Deadband (Floating Camera)**: O veículo se move livremente pela tela com interpolação contínua (sem sacolejos ou pulos bruscos); o mapa recentraliza com deslizamento suave apenas quando o carro ultrapassa a margem de conforto.
-- **Acompanhamento com Zoom Automático**: Centralização imediata no nível de rua (`zoom 16`) ao focar qualquer veículo pela barra lateral ou pelo seletor de topo.
-
 ---
 
 ## 🛠️ Stack Tecnológica
@@ -64,10 +59,10 @@ Implementado com foco em boas práticas no ecossistema **PHP / Laravel**:
 | Camada | Tecnologias Utilizadas |
 | :--- | :--- |
 | **Backend (Core Engineering)** | **PHP 8.2+**, **Laravel 11**, SQLite, Guzzle HTTP, Raw TCP Sockets, Artisan Daemon, Cache API |
-| **Frontend (Vibe Coding UI)** | Vanilla JavaScript (ES6+ modular), Tailwind CSS, Leaflet.js, OpenStreetMap |
-| **Streaming em Tempo Real** | **Server-Sent Events (SSE)** nativo |
+| **Comunicação em Tempo Real** | **Server-Sent Events (SSE)** nativo |
 | **Roteamento Geográfico** | OSRM (Open Source Routing Machine) API |
 | **Protocolos GPS Suportados** | OsmAnd HTTP, Teltonika, Coban/GPS103, TK103, GT06, H02, Suntech, Queclink, Meitrack |
+| **Frontend (Interface de Apoio)** | Vanilla JavaScript, Tailwind CSS, Leaflet.js |
 
 ---
 
@@ -132,7 +127,7 @@ Acesse o painel no navegador:
    - **Importar Dispositivo Real**: Acesse a sub-aba **Importar do Traccar**, localize seu veículo e clique em **Importar** (confirmando a ciência dos riscos operacionais).
    - **Criar Frota Sintética**: Vá para a aba **Criar Veículos**, escolha a cidade desejada (ex: Fortaleza, São Paulo), quantidade de veículos e clique em **Gerar Frota**.
 3. **Monitoramento & Operação**:
-   - Clique em qualquer veículo na sidebar da tela inicial para aproximar a câmera (`zoom 16`) e acompanhar a trajetória em tempo real.
+   - Monitore a frota ativa e os pacotes despachados pelo terminal ou pela tela inicial.
    - Utilize o cockpit de telemetria para testar bloqueios de motor, simulação de reboque, corte de chicote e descarregamento de buffer de sombra.
 
 ---
