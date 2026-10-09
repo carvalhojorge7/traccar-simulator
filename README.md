@@ -1,35 +1,51 @@
 # Traccar Fleet Simulator & Telemetry Injector 🚗📡
 
-Simulador profissional de frotas de veículos e injetor de telemetria em tempo real para a plataforma [Traccar](https://www.traccar.org), desenvolvido em **PHP 8.2+ / Laravel 11** com arquitetura de alta performance, física veicular realista, roteamento inteligente via OSRM e streaming nativo de eventos (SSE).
+> **Nota sobre o desenvolvimento**:  
+> Toda a arquitetura, regras de negócio, física e serviços do **Backend (Laravel)** foram desenvolvidos por mim ([Jorge Carvalho](https://github.com/carvalhojorge7)).  
+> O **Frontend** foi construído via **Vibe Coding** como interface de apoio para consumir e demonstrar as capacidades do simulador.
+
+Simulador de frotas veiculares e injetor de telemetria em tempo real para a plataforma [Traccar](https://www.traccar.org), desenvolvido em **PHP 8.2+ / Laravel 11** com física veicular realista, roteamento OSRM e streaming nativo de eventos (SSE).
 
 ---
 
-## 🌟 Principais Recursos
+## 🛠️ Arquitetura do Backend
+
+Implementado com foco em boas práticas no ecossistema **PHP / Laravel**:
+
+- **Services Especializados**: Desacoplamento entre integração (`TraccarService`), roteamento (`OsrmService`) e física veicular (`SimulationEngine`).
+- **Diagnóstico via TCP Socket**: Validação de conectividade direta com medição de latência em milissegundos para as portas de ingestão GPS.
+- **Cache & Daemon em Tempo Real**: Estado sincronizado entre requisições HTTP e o daemon Artisan (`php artisan simulation:run`).
+- **Server-Sent Events (SSE)**: Streaming de telemetria e posições em tempo real para o navegador de forma leve e nativa.
+- **Segurança Operacional**: Validação e alertas para evitar conflitos ao simular dispositivos reais já cadastrados no Traccar.
+
+---
+
+## 🌟 Recursos & Destaques de Engenharia
 
 ### 1. Conexão & Diagnóstico Fim a Fim
-- **Autenticação Segura com Traccar**: Suporte à API REST (HTTP Basic Auth e Session Cookie) em portas locais ou túneis HTTPS remotos com subdomínios.
-- **Teste de Conectividade Raw TCP Socket**: Validação de conectividade em tempo real para qualquer porta (HTTP, OsmAnd, Teltonika, Coban, Suntech, etc.) com medição de latência de rede em milissegundos.
-- **Diagnóstico com Dispositivo de Teste Efêmero**: Criação e remoção automática de um dispositivo teste (`DEVICE_TEST_PING_CHECK`) para validação prática de permissões da conta.
+- **Autenticação Híbrida**: Suporte à API REST (HTTP Basic Auth e Session Cookie) em redes locais ou túneis remotos HTTPS.
+- **Teste Raw TCP Socket**: Checagem de conectividade com medição de latência em milissegundos para qualquer porta de telecomunicação.
+- **Validação com Dispositivo Efêmero**: Rotina automatizada que cria e remove um dispositivo de teste no Traccar remoto para checar permissões de escrita antes de disparar frotas.
 
 ### 2. Importação Segura de Dispositivos Reais do Traccar
-- **Catálogo de Dispositivos Remotos**: Lista todos os dispositivos cadastrados no seu servidor Traccar remoto com status (Online/Offline), modelo, protocolo e coordenadas atuais.
-- **Alerta Crítico de Segurança Operacional**: Modal com confirmação obrigatória de risco consciente antes de associar telemetria a um IMEI real, alertando sobre possíveis impactos de bloqueio no trânsito caso haja automações e regras de corte ativas no Traccar.
+- **Catálogo de Dispositivos Remotos**: Lista os veículos da base com status (Online/Offline), protocolo e coordenadas.
+- **Alerta Crítico de Segurança Operacional**: Modal com confirmação obrigatória de risco para evitar disparos acidentais que possam acionar regras de bloqueio de combustível em veículos reais no trânsito.
 
 ### 3. Gerenciamento Completo de Protocolos & Portas Customizadas
-- **Portas Editáveis em Todos os Protocolos**: Permite alterar a porta de ingestão de **qualquer protocolo** (inclusive os nativos como OsmAnd `:5055`, Teltonika `:5027`, Coban `:5001`, GT06 `:5023`, Suntech `:5011`, etc.).
-- **Restauração de Fábrica em 1 Clique**: Indicador visual de protocolo customizado/editado e botão de restauração instantânea para a porta padrão de fábrica.
-- **Cadastro Permanente de Protocolos Customizados**: Interface para registrar novos protocolos proprietários com transporte TCP/UDP.
+- **Portas Editáveis em Qualquer Protocolo**: Edição liberada tanto para protocolos conhecidos (OsmAnd, Teltonika, Coban, GT06, Suntech, etc.) quanto customizados.
+- **Restauração de Fábrica em 1 Clique**: Preserva as portas padrão de fábrica com botão de restauração instantânea.
+- **Cadastro Permanente de Protocolos Customizados**: Interface para cadastrar novos protocolos com identificação TCP/UDP.
 
-### 4. Atributos Calculados (JEXL) & Injeção de Telemetria Customizada
-- **Sincronização com `/settings/attributes`**: Leitura de todas as regras e expressões JEXL computadas configuradas na instância Traccar.
-- **Injeção de Sensores em Tempo Real**: Configuração flexível de sensores (Combustível, Temperatura do motor, Porta aberta, Bateria do rastreador, etc.), propagados dinamicamente para os pacotes de telemetria despachados.
+### 4. Atributos Calculados (JEXL) & Injeção de Telemetria
+- **Sincronização com `/settings/attributes`**: Leitura de expressões e regras JEXL computadas cadastradas no servidor Traccar.
+- **Injeção de Sensores em Tempo Real**: Telemetria customizada (combustível, temperatura do motor, sensor de porta, bateria backup) injetada diretamente nos pacotes enviados.
 
 ### 5. Física Veicular Realista & Roteamento OpenStreetMap (OSRM)
-- Traçados dinâmicos e circulantes por ruas, avenidas e rodovias reais de capitais (São Paulo, Rio de Janeiro, Fortaleza, etc.) obtidos via motor OSRM.
-- Curvas com redução automática de velocidade baseada na variação de azimute (*bearing*).
+- Traçados dinâmicos e circulantes por vias reais de capitais (São Paulo, Rio de Janeiro, Fortaleza, etc.) obtidos via OSRM.
+- Redução de velocidade automática em curvas acentuadas baseada no azimute (*bearing*).
 - Simulação de semáforos, trânsito urbano e paradas com motor ligado ou desligado.
-- Voltagem de bateria realista (13.8V a 14.2V com alternador ativo; 12.0V a 12.4V desligado; 0.0V em corte de chicote VCC).
-- **Controles de Hardware e Relés**:
+- Voltagem de bateria realista (13.8V a 14.2V com alternador ativo; 12.0V a 12.4V desligado; 0.0V em corte de chicote).
+- **Controles de Hardware e Relés de Bancada**:
   - Pós-chave / Ignição (Automático / Ligado Manual / Desligado Manual).
   - Corte de alimentação VCC (Bateria principal vs Backup).
   - Bloqueio remoto de combustível/motor (`blocked: true`).
@@ -47,9 +63,9 @@ Simulador profissional de frotas de veículos e injetor de telemetria em tempo r
 
 | Camada | Tecnologias Utilizadas |
 | :--- | :--- |
-| **Backend** | **PHP 8.2+**, **Laravel 11**, SQLite, Guzzle HTTP, Raw TCP Sockets, Artisan CLI |
-| **Frontend** | Vanilla JavaScript (ES6+ modular), Tailwind CSS, Leaflet.js, OpenStreetMap |
-| **Comunicação em Tempo Real** | **Server-Sent Events (SSE)** com reconnection automática e sem dependência de daemons externos |
+| **Backend (Core Engineering)** | **PHP 8.2+**, **Laravel 11**, SQLite, Guzzle HTTP, Raw TCP Sockets, Artisan Daemon, Cache API |
+| **Frontend (Vibe Coding UI)** | Vanilla JavaScript (ES6+ modular), Tailwind CSS, Leaflet.js, OpenStreetMap |
+| **Streaming em Tempo Real** | **Server-Sent Events (SSE)** nativo |
 | **Roteamento Geográfico** | OSRM (Open Source Routing Machine) API |
 | **Protocolos GPS Suportados** | OsmAnd HTTP, Teltonika, Coban/GPS103, TK103, GT06, H02, Suntech, Queclink, Meitrack |
 
@@ -87,7 +103,7 @@ php artisan migrate
 
 ### 3. Iniciar a Aplicação
 
-Abra dois terminais (ou execute via supervisor/gerenciador de processos):
+Abra dois terminais:
 
 **Terminal 1 — Servidor Web:**
 ```bash
@@ -118,6 +134,15 @@ Acesse o painel no navegador:
 3. **Monitoramento & Operação**:
    - Clique em qualquer veículo na sidebar da tela inicial para aproximar a câmera (`zoom 16`) e acompanhar a trajetória em tempo real.
    - Utilize o cockpit de telemetria para testar bloqueios de motor, simulação de reboque, corte de chicote e descarregamento de buffer de sombra.
+
+---
+
+## 👤 Desenvolvedor
+
+**Jorge Carvalho**  
+Engenheiro de Software / Desenvolvedor PHP Laravel  
+- GitHub: [@carvalhojorge7](https://github.com/carvalhojorge7)  
+- Bitcoin (BTC): `bc1qs7ymrzsfy6f7dgecs8kar2lpw3jup8640nuw95`
 
 ---
 
