@@ -1,0 +1,11 @@
+.git
+.github
+backend-laravel/vendor
+backend-laravel/storage/*.key
+backend-laravel/storage/logs/*.log
+backend-laravel/bootstrap/cache/packages.php
+backend-laravel/bootstrap/cache/services.php
+backend-laravel/database/database.sqlite
+backend-laravel/database/database.sqlite-shm
+backend-laravel/database/database.sqlite-wal
+.env

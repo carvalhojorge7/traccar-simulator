@@ -1,0 +1,25 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: traccar-simulator:latest
+    container_name: traccar_simulator_app
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    environment:
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - APP_KEY=${APP_KEY:-base64:qg3K9r6KkS00YQe5/X3U50j9w5fGf9i5R9c5H9q5Y9w=}
+      - DB_CONNECTION=sqlite
+      - DB_DATABASE=/var/www/backend-laravel/database/database.sqlite
+      - CACHE_STORE=file
+      - SESSION_DRIVER=file
+    volumes:
+      - sim_data:/var/www/backend-laravel/database
+      - sim_storage:/var/www/backend-laravel/storage
+
+volumes:
+  sim_data:
+  sim_storage:

@@ -117,6 +117,35 @@ Acesse o painel no navegador:
 
 ---
 
+## 🐳 Deploy com Docker & Docker Compose
+
+A aplicação possui suporte nativo a containerização com **PHP 8.3 CLI Alpine**, executando tanto o servidor web multithread quanto o daemon de física veicular com volumes persistentes para banco SQLite e storage.
+
+### 1. Subir a Aplicação com Docker Compose
+```bash
+docker compose up -d --build
+```
+> O container iniciará na porta **`8000`** e executará as migrações do banco de dados automaticamente.
+
+### 2. Acompanhar Logs da Simulação
+```bash
+docker compose logs -f app
+```
+
+### 3. Parar os Containers
+```bash
+docker compose down
+```
+
+### Variáveis Opcionais (`.env` ou ambiente)
+| Variável | Padrão | Descrição |
+| :--- | :--- | :--- |
+| `APP_PORT` | `8000` | Porta exposta no host |
+| `TRACCAR_HOST` | `traccar` / `localhost` | Host padrão para despacho de telemetria |
+| `TRACCAR_PORT` | `5055` | Porta padrão do protocolo OsmAnd |
+
+---
+
 ## 📖 Fluxo de Utilização Recomendado
 
 1. **Configuração Inicial**:
