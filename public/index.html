@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Traccar Fleet Simulator & Telemetry Injector</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="bg-slate-950 text-slate-100 h-full w-full flex flex-col overflow-hidden">
+
+  <!-- Header Superior com Navegação em Abas (56px) -->
+  <header class="h-14 shrink-0 bg-slate-900 border-b border-slate-800 px-4 sm:px-6 flex items-center justify-between z-40">
+    <div class="flex items-center gap-4 sm:gap-6">
+      <!-- Logo e Título -->
+      <div class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-sky-500/20 shrink-0">
+          <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-xs sm:text-sm font-bold text-white flex items-center gap-1.5 leading-none">
+            Traccar Simulator
+            <span class="text-[9px] font-mono px-1 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20">v1.3</span>
+          </h1>
+          <p class="text-[10px] text-slate-400 leading-none mt-1">Injeção Realista & OsmAnd HTTP</p>
+        </div>
+      </div>
+
+      <!-- Abas de Navegação -->
+      <nav class="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 overflow-x-auto">
+        <button id="navTabHome" onclick="switchTab('home')" class="nav-tab px-3 py-1 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 bg-sky-600 text-white shadow-sm shrink-0">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+          Home (Mapa)
+        </button>
+        <button id="navTabFleet" onclick="switchTab('fleet')" class="nav-tab px-3 py-1 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 transition-all flex items-center gap-1.5 shrink-0">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+          Frota
+          <span id="tabFleetBadge" class="bg-slate-800 text-sky-400 text-[10px] px-1.5 py-0.2 rounded-full font-mono">0</span>
+        </button>
+        <button id="navTabLogs" onclick="switchTab('logs')" class="nav-tab px-3 py-1 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 transition-all flex items-center gap-1.5 shrink-0">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          Comandos & Logs
+          <span id="tabLogsBadge" class="bg-slate-800 text-emerald-400 text-[10px] px-1.5 py-0.2 rounded-full font-mono">0</span>
+        </button>
+        <button id="navTabConfig" onclick="switchTab('config')" class="nav-tab px-3 py-1 rounded-lg text-xs font-medium text-slate-400 hover:text-slate-200 transition-all flex items-center gap-1.5 shrink-0">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          Configurações
+        </button>
+      </nav>
+    </div>
+
+    <!-- Indicador de Status WebSocket -->
+    <div class="flex items-center gap-3">
+      <div id="wsBadge" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-400 border border-slate-700">
+        <span class="w-1.5 h-1.5 rounded-full bg-slate-400"></span> Conectando...
+      </div>
+    </div>
+  </header>
+
+  <!-- Container Principal das Abas (Ocupa todo o resto da tela) -->
+  <main class="flex-1 w-full h-[calc(100vh-56px)] relative overflow-hidden">
+
+    <!-- ========================================================= -->
+    <!-- ABA 1: HOME (MAPA GERAL + ESTATÍSTICAS DO SISTEMA)         -->
+    <!-- ========================================================= -->
+    <section id="contentTabHome" class="tab-pane w-full h-full flex flex-col relative overflow-hidden">
+      <!-- Barra Superior de KPIs Gerais Compacta e Responsiva -->
+      <div class="shrink-0 bg-slate-900 border-b border-slate-800 px-4 py-2 flex items-center justify-between gap-3 overflow-x-auto z-20">
+        <div class="flex items-center gap-2 shrink-0">
+          <div class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 flex items-center gap-2">
+            <span class="text-[11px] text-slate-400">Frota:</span>
+            <span id="kpiTotalVehicles" class="text-xs font-bold text-white font-mono">0</span>
+          </div>
+          <div class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span class="text-[11px] text-emerald-400">Andando:</span>
+            <span id="kpiMovingVehicles" class="text-xs font-bold text-emerald-400 font-mono">0</span>
+          </div>
+          <div class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+            <span class="text-[11px] text-amber-400">Parado:</span>
+            <span id="kpiTrafficStopVehicles" class="text-xs font-bold text-amber-400 font-mono">0</span>
+          </div>
+          <div class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 flex items-center gap-2">
+            <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span>
+            <span class="text-[11px] text-rose-400">Desligados:</span>
+            <span id="kpiParkedVehicles" class="text-xs font-bold text-rose-400 font-mono">0</span>
+          </div>
+        </div>
+
+        <!-- Seletor Rápido de Cidade / Região do Mapa -->
+        <div class="flex items-center gap-2 shrink-0">
+          <div class="flex items-center gap-1.5 bg-slate-950 border border-slate-800 hover:border-sky-500/50 rounded-lg px-2.5 py-1 text-xs transition-colors">
+            <svg class="w-3.5 h-3.5 text-sky-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <span class="text-[11px] text-slate-400 font-medium">Cidade:</span>
+            <select id="homeQuickCitySelect" onchange="switchMapCity(this.value)" class="bg-transparent text-slate-200 text-xs font-medium focus:outline-none cursor-pointer">
+              <option value="-23.5505,-46.6333" class="bg-slate-900 text-slate-200">São Paulo, SP</option>
+              <option value="-3.7319,-38.5267" class="bg-slate-900 text-slate-200">Fortaleza, CE</option>
+              <option value="-22.9068,-43.1729" class="bg-slate-900 text-slate-200">Rio de Janeiro, RJ</option>
+              <option value="-19.9167,-43.9345" class="bg-slate-900 text-slate-200">Belo Horizonte, MG</option>
+              <option value="-25.4284,-49.2733" class="bg-slate-900 text-slate-200">Curitiba, PR</option>
+              <option value="-15.7975,-47.8919" class="bg-slate-900 text-slate-200">Brasília, DF</option>
+              <option value="-12.9777,-38.5016" class="bg-slate-900 text-slate-200">Salvador, BA</option>
+              <option value="-30.0346,-51.2177" class="bg-slate-900 text-slate-200">Porto Alegre, RS</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Centro de Comando: Split Lateral (Lista de Veículos + Mapa) -->
+      <div class="flex-1 w-full h-full flex flex-row min-h-0 relative overflow-hidden">
+
+        <!-- Painel Lateral de Veículos (Sidebar na Home) -->
+        <aside id="homeFleetSidebar" class="w-80 sm:w-96 md:w-[370px] lg:w-[400px] h-full flex flex-col bg-slate-900/95 border-r border-slate-800 shrink-0 z-20 transition-all duration-300 relative shadow-2xl">
+          <!-- Topo da Sidebar: Título, Contadores e Ações Rápidas -->
+          <div class="p-3 border-b border-slate-800/80 space-y-2.5 shrink-0 bg-slate-900">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-sky-400"></span>
+                <h3 class="text-xs font-bold text-white uppercase tracking-wider">
+                  Frota de Veículos
+                </h3>
+                <span id="homeSidebarCountBadge" class="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20">
+                  0 ativos
+                </span>
+              </div>
+              <div class="flex items-center gap-1">
+                <button onclick="switchTab('create')" title="Inserir novos veículos" class="text-xs font-medium bg-sky-600 hover:bg-sky-500 text-white px-2.5 py-1 rounded-lg transition-colors shadow-sm">
+                  + Inserir
+                </button>
+                <button id="btnToggleSidebar" onclick="toggleHomeSidebar()" title="Recolher painel lateral" class="p-1 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors">
+                  <svg id="iconToggleSidebar" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7"/></svg>
+                </button>
+              </div>
+            </div>
+
+            <!-- Input de Busca Rápida -->
+            <div class="relative">
+              <input type="text" id="homeFilterVehicleSearch" placeholder="Buscar por placa, modelo ou ID..." class="w-full bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-sky-500 font-mono">
+              <svg class="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            </div>
+
+            <!-- Status de Foco Atual -->
+            <div id="homeFocusNotice" class="hidden items-center justify-between text-[11px] bg-sky-950/50 border border-sky-500/30 rounded-xl px-2.5 py-1.5 text-sky-300">
+              <span class="truncate flex items-center gap-1.5 min-w-0">
+                <span class="w-2 h-2 rounded-full bg-sky-400 animate-ping shrink-0"></span>
+                <span class="text-slate-400 shrink-0">Focado:</span>
+                <b id="homeFocusedVehicleName" class="font-bold text-white truncate">--</b>
+              </span>
+              <button onclick="unfocusVehicle()" title="Restaurar Visão Geral no Mapa" class="text-sky-400 hover:text-white underline font-semibold text-[10px] shrink-0 ml-1">
+                ✕ Visão Geral
+              </button>
+            </div>
+          </div>
+
+          <!-- Lista Scrollável de Cards na Sidebar -->
+          <div id="homeFleetListContainer" class="flex-1 overflow-y-auto p-3 space-y-2.5">
+            <div class="py-12 text-center text-slate-500 text-xs">
+              Nenhum veículo em circulação.<br>
+              <button onclick="switchTab('create')" class="text-sky-400 hover:underline mt-2 inline-block font-medium">Clique para inserir</button>
+            </div>
+          </div>
+        </aside>
+
+        <!-- Área do Mapa (Garante Altura e Largura 100% Flexíveis) -->
+        <div class="flex-1 h-full relative min-h-0 overflow-hidden">
+          <!-- Mapa Leaflet com posição absoluta e inset 0 -->
+          <div id="map" class="absolute inset-0 w-full h-full z-10 bg-slate-950"></div>
+
+          <!-- Botão para reabrir Sidebar quando recolhida -->
+          <button id="btnOpenSidebarFloating" onclick="toggleHomeSidebar()" title="Expandir lista de veículos" class="hidden absolute top-3 left-3 z-[1000] p-2 bg-slate-900/95 hover:bg-slate-800 text-sky-400 border border-slate-800 rounded-xl shadow-xl transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7"/></svg>
+          </button>
+
+          <!-- Painel Cockpit do Veículo Selecionado (Respeita rigorosamente o limite do Mapa) -->
+          <div id="vehicleDetailModal" class="hidden absolute top-3 right-3 bottom-3 z-[1000] w-80 sm:w-88 transition-all duration-300 flex-col bg-slate-900/95 border border-slate-800 rounded-2xl shadow-2xl backdrop-blur overflow-hidden">
+            <!-- Cabeçalho Fixo do Cockpit -->
+            <div id="vehicleDetailHeader" class="p-3 border-b border-slate-800 flex flex-col gap-2 shrink-0 bg-slate-900/95">
+              <!-- Renderizado dinamicamente com botões Expandir/Compactar e Fechar -->
+            </div>
+
+            <!-- Conteúdo com Scroll do Cockpit -->
+            <div id="vehicleDetailContent" class="p-3 overflow-y-auto space-y-3 flex-1 text-xs">
+              <!-- Renderizado dinamicamente via JS -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- ABA 2: FROTA DE VEÍCULOS (LISTA E DETALHES)                -->
+    <!-- ========================================================= -->
+    <section id="contentTabFleet" class="tab-pane w-full h-full p-4 sm:p-6 overflow-y-auto hidden">
+      <div class="max-w-6xl mx-auto space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 class="text-base font-bold text-white flex items-center gap-2">
+              Frota de Veículos Simulados
+              <span id="fleetHeaderCount" class="text-xs font-mono font-medium px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20">0 veículos</span>
+            </h2>
+            <p class="text-xs text-slate-400">Clique em qualquer veículo para inspecionar estatísticas e localizá-lo no mapa</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <input type="text" id="filterVehicleSearch" placeholder="Buscar por placa, nome ou ID..." class="bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 w-56 focus:outline-none focus:border-sky-500 font-mono">
+            <button id="btnToggleFleetCreate" onclick="toggleFleetCreateAccordion()" class="bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold px-3 py-1.5 rounded-xl transition-all shrink-0 shadow-lg shadow-sky-600/20 flex items-center gap-1.5">
+              <span id="iconFleetCreateToggle">➕</span>
+              <span id="textFleetCreateToggle">Inserir Veículos</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Painel Expansível de Inserção de Veículos na Frota -->
+        <div id="fleetCreateAccordion" class="hidden bg-slate-900 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xl space-y-4 transition-all">
+          <div class="flex items-center justify-between pb-2 border-b border-slate-800/80">
+            <div>
+              <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                <span class="w-6 h-6 rounded-lg bg-sky-600/20 text-sky-400 flex items-center justify-center text-xs">➕</span>
+                Inserção e Disparo de Veículos em Massa
+              </h3>
+              <p class="text-xs text-slate-400 mt-0.5">
+                Gera identificadores de telemetria, rotas viárias reais no OpenStreetMap e despacha para o Traccar via OsmAnd.
+              </p>
+            </div>
+            <button onclick="toggleFleetCreateAccordion()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+
+          <div class="space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-medium text-slate-300 mb-1">Quantidade de Veículos</label>
+                <input type="number" id="inputVehicleCount" value="5" min="1" max="50" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 font-mono focus:border-sky-500">
+              </div>
+              <div>
+                <label class="block text-xs font-medium text-slate-300 mb-1">Protocolo / Modelo</label>
+                <select id="selectVehicleModel" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 focus:border-sky-500">
+                  <option value="OsmAnd">OsmAnd (Padrão HTTP)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-4 space-y-3">
+              <label class="block text-xs font-semibold text-slate-300">Região de Circulação</label>
+              <select id="presetCitySelect" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:border-sky-500">
+                <option value="-23.5505,-46.6333">São Paulo, SP</option>
+                <option value="-3.7319,-38.5267">Fortaleza, CE</option>
+                <option value="-22.9068,-43.1729">Rio de Janeiro, RJ</option>
+                <option value="-19.9167,-43.9345">Belo Horizonte, MG</option>
+                <option value="-25.4284,-49.2733">Curitiba, PR</option>
+                <option value="-15.7975,-47.8919">Brasília, DF</option>
+                <option value="-12.9777,-38.5016">Salvador, BA</option>
+                <option value="-30.0346,-51.2177">Porto Alegre, RS</option>
+              </select>
+              <div class="grid grid-cols-2 gap-2">
+                <input type="number" id="inputLat" step="0.0001" value="-23.5505" placeholder="Latitude" class="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 font-mono">
+                <input type="number" id="inputLon" step="0.0001" value="-46.6333" placeholder="Longitude" class="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 font-mono">
+              </div>
+              <div>
+                <div class="flex justify-between items-center text-xs mb-1">
+                  <span class="text-slate-400">Raio de Dispersão:</span>
+                  <span id="radiusDisplay" class="font-bold text-sky-400 font-mono">8 km</span>
+                </div>
+                <input type="range" id="inputRadius" min="2" max="30" value="8" class="w-full accent-sky-500">
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2 pt-1">
+              <input type="checkbox" id="checkCreateInTraccar" checked class="w-4 h-4 rounded border-slate-800 bg-slate-950 text-sky-600">
+              <label for="checkCreateInTraccar" class="text-xs text-slate-300">
+                Registrar dispositivos automaticamente na API REST do Traccar antes de disparar
+              </label>
+            </div>
+
+            <button id="btnStartBatchSimulation" type="button" class="w-full bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-bold text-xs py-3 rounded-xl transition-all shadow-lg shadow-sky-600/30 flex items-center justify-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              Criar Veículos & Disparar Rotas
+            </button>
+          </div>
+        </div>
+
+        <!-- Barra de Ações em Lote da Frota -->
+        <div class="flex flex-wrap items-center justify-between gap-3 bg-slate-900/80 border border-slate-800 rounded-2xl px-4 py-2.5">
+          <div class="flex items-center gap-3">
+            <label class="flex items-center gap-2 text-xs text-slate-300 cursor-pointer select-none">
+              <input type="checkbox" id="selectAllFleetCheckbox" onchange="toggleSelectAllFleet(this.checked)" class="rounded bg-slate-950 border-slate-700 text-sky-500 focus:ring-0 w-4 h-4 cursor-pointer">
+              <span id="selectAllFleetLabel" class="font-medium">Selecionar Todos</span>
+            </label>
+            <span id="selectedFleetBadge" class="hidden text-xs font-mono px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/20">
+              0 selecionados
+            </span>
+          </div>
+
+          <div class="flex items-center gap-2">
+            <!-- Botão Excluir Selecionados em Lote -->
+            <button id="btnDeleteSelectedVehicles" onclick="confirmDeleteSelectedVehicles()" class="hidden items-center gap-1.5 bg-rose-500/15 hover:bg-rose-500/25 text-rose-300 border border-rose-500/30 text-xs font-medium px-3 py-1.5 rounded-xl transition-all shadow-lg shadow-rose-500/10">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              <span id="btnDeleteSelectedText">Excluir Selecionados (0)</span>
+            </button>
+
+            <!-- Botão Limpar Frota -->
+            <button id="btnClearAllFleet" onclick="confirmClearAllFleet()" class="flex items-center gap-1.5 bg-slate-950 hover:bg-rose-950/40 text-slate-400 hover:text-rose-400 border border-slate-800 hover:border-rose-500/30 text-xs font-medium px-3 py-1.5 rounded-xl transition-all" title="Remover todos os veículos da simulação">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              Limpar Frota
+            </button>
+          </div>
+        </div>
+
+        <div id="fleetCardsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+          <div class="col-span-full py-16 text-center text-slate-500 text-sm">
+            Nenhum veículo em circulação.<br>
+            <button onclick="toggleFleetCreateAccordion(true)" class="text-sky-400 hover:underline mt-2 inline-block font-medium">Clique aqui para criar e disparar veículos</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- ABA 3: COMANDOS & LOGS (TABELA GERAL)                      -->
+    <!-- ========================================================= -->
+    <section id="contentTabLogs" class="tab-pane w-full h-full p-4 sm:p-6 overflow-y-auto hidden">
+      <div class="max-w-6xl mx-auto space-y-4">
+        <!-- Topo da Aba de Logs -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 class="text-base font-bold text-white flex items-center gap-2">
+              <span class="w-6 h-6 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs">⚡</span>
+              Console de Comandos & Telemetria OsmAnd (:5055)
+              <span id="tabLogsHeaderBadge" class="text-xs font-mono font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">0 pacotes</span>
+            </h2>
+            <p class="text-xs text-slate-400">Fluxo contínuo de pacotes GPS, telemetria e comandos despachados para o Traccar</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <select id="tabLogsFilterVehicle" onchange="handleTabLogsFilterChange(this.value)" class="bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-sky-500 font-mono">
+              <option value="">Todos os Veículos</option>
+            </select>
+            <button id="btnTabLogsToggleAutoScroll" onclick="toggleTabLogsAutoScroll()" class="px-3 py-1.5 rounded-xl text-xs font-medium border border-slate-800 bg-slate-900 text-sky-400 hover:text-sky-300 transition-colors flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>Rolagem: Auto</span>
+            </button>
+            <button onclick="clearAllLogs()" class="px-3 py-1.5 rounded-xl text-xs font-medium border border-slate-800 bg-slate-900 text-slate-400 hover:text-slate-200 transition-colors">
+              Limpar Feed
+            </button>
+          </div>
+        </div>
+
+        <!-- Tabela Ampla de Logs -->
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
+          <div class="max-h-[calc(100vh-210px)] overflow-y-auto" id="tabLogsScrollContainer">
+            <table class="w-full text-left text-xs font-mono">
+              <thead class="bg-slate-950 text-slate-400 sticky top-0 z-10 border-b border-slate-800">
+                <tr>
+                  <th class="py-3 px-4">Horário</th>
+                  <th class="py-3 px-4">Veículo / Placa</th>
+                  <th class="py-3 px-4">Status Traccar</th>
+                  <th class="py-3 px-4">Velocidade</th>
+                  <th class="py-3 px-4">Ignição</th>
+                  <th class="py-3 px-4">Tensão Bateria</th>
+                  <th class="py-3 px-4">Coordenadas</th>
+                  <th class="py-3 px-3 text-center">Payload</th>
+                </tr>
+              </thead>
+              <tbody id="tabLogsTableBody" class="divide-y divide-slate-800/40">
+                <tr>
+                  <td colspan="8" class="py-16 text-center text-slate-500 font-sans text-xs">Aguardando novos disparos de telemetria...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================= -->
+    <!-- ABA 4: CONFIGURAÇÕES E CONEXÃO TRACCAR                     -->
+    <!-- ========================================================= -->
+    <section id="contentTabConfig" class="tab-pane w-full h-full p-4 sm:p-6 overflow-y-auto hidden">
+      <div class="max-w-6xl mx-auto space-y-6">
+
+        <!-- Banner Superior com Status da Conexão em Tempo Real -->
+        <div class="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-950 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div class="flex items-center gap-3.5">
+            <div class="w-12 h-12 rounded-2xl bg-sky-500/10 border border-sky-500/20 text-sky-400 flex items-center justify-center text-xl shrink-0">
+              ⚙️
+            </div>
+            <div>
+              <h2 class="text-base font-bold text-white flex items-center gap-2">
+                Conexão & Integração com o Traccar
+                <span id="configBadgeStatus" class="text-[10px] font-mono px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">Não Verificado</span>
+              </h2>
+              <p class="text-xs text-slate-400 mt-0.5">
+                Gerencie credenciais, teste portas customizadas, importe dispositivos e configure atributos calculados.
+              </p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2.5">
+            <button id="btnSaveConfig" type="button" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-600/20 flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              <span id="btnSaveConfigText">Salvar Configurações</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Barra de Navegação das Sub-Abas de Configuração -->
+        <div class="flex flex-wrap items-center gap-2 border-b border-slate-800 pb-3">
+          <button onclick="switchConfigSubTab('connection')" id="btnConfigSubTab_connection" class="config-subtab-btn px-4 py-2 rounded-xl text-xs font-semibold bg-sky-600/20 text-sky-400 border border-sky-500/30 transition-all flex items-center gap-2">
+            <span>⚙️ Conexão & Diagnóstico</span>
+          </button>
+          <button onclick="switchConfigSubTab('import')" id="btnConfigSubTab_import" class="config-subtab-btn px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent transition-all flex items-center gap-2">
+            <span>📥 Importar do Traccar</span>
+            <span id="badgeRemoteDevicesCount" class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">0</span>
+          </button>
+          <button onclick="switchConfigSubTab('protocols')" id="btnConfigSubTab_protocols" class="config-subtab-btn px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent transition-all flex items-center gap-2">
+            <span>📡 Protocolos & Portas</span>
+          </button>
+          <button onclick="switchConfigSubTab('attributes')" id="btnConfigSubTab_attributes" class="config-subtab-btn px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-transparent transition-all flex items-center gap-2">
+            <span>🎛️ Atributos Calculados</span>
+            <span id="badgeComputedAttributesCount" class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400">0</span>
+          </button>
+        </div>
+
+        <!-- ========================================================= -->
+        <!-- SUB-ABA 1: CONEXÃO & DIAGNÓSTICO                          -->
+        <!-- ========================================================= -->
+        <div id="configSubPane_connection" class="config-subpane space-y-6">
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+            <!-- Coluna Esquerda: Formulário de Credenciais & Endpoints (7 cols) -->
+            <div class="lg:col-span-7 bg-slate-900/90 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xl space-y-5">
+              <div class="border-b border-slate-800/80 pb-3 flex items-center justify-between">
+                <div>
+                  <h3 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-sky-400"></span>
+                    Parâmetros de Acesso ao Traccar Remoto
+                  </h3>
+                  <p class="text-[11px] text-slate-400 mt-0.5">
+                    Os dados são sincronizados no backend Laravel e salvos no navegador.
+                  </p>
+                </div>
+              </div>
+
+              <div class="space-y-4">
+                <!-- URL Traccar API REST -->
+                <div>
+                  <label class="block text-xs font-medium text-slate-300 mb-1 flex items-center justify-between">
+                    <span>URL Traccar (API REST Web)</span>
+                    <span class="text-[10px] text-slate-500">Ex: http://meu-traccar.com:8082 ou https://tracker.homolog.oryon.api.br</span>
+                  </label>
+                  <input type="text" id="traccarUrl" value="http://localhost:8082" placeholder="http://localhost:8082" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 font-mono focus:border-sky-500 focus:ring-1 focus:ring-sky-500/30 transition-all">
+                </div>
+
+                <!-- Host & Porta OsmAnd / Custom -->
+                <div>
+                  <label class="block text-xs font-medium text-slate-300 mb-1 flex items-center justify-between">
+                    <span>Host & Porta de Ingestão de Telemetria</span>
+                    <span class="text-[10px] text-amber-400/80">⚠️ O teste aceita qualquer porta que você digitar</span>
+                  </label>
+                  <div class="grid grid-cols-3 gap-2">
+                    <input type="text" id="traccarOsmandHost" placeholder="localhost" class="col-span-2 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-100 font-mono focus:border-sky-500">
+                    <input type="number" id="traccarOsmandPort" value="5055" placeholder="5055" class="bg-slate-950 border border-slate-800 rounded-xl px-2 py-2.5 text-xs text-slate-100 font-mono text-center focus:border-sky-500">
+                  </div>
+                  <p class="text-[10px] text-slate-500 mt-1">
+                    Insira qualquer porta de ingestão do seu servidor (ex: 5055 OsmAnd, 5027 Teltonika, 5013 H02). O teste de porta testará exatamente o número inserido acima.
+                  </p>
+                </div>
+
+                <!-- Usuário e Senha -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Usuário / Email Traccar</label>
+                    <input type="text" id="traccarUser" value="admin" placeholder="admin ou seu@email.com" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-100 font-mono focus:border-sky-500">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Senha Traccar</label>
+                    <div class="relative">
+                      <input type="password" id="traccarPass" value="admin" placeholder="••••••" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-slate-100 font-mono focus:border-sky-500 pr-9">
+                      <button type="button" id="btnTogglePassVisibility" class="absolute right-2.5 top-2.5 text-slate-500 hover:text-slate-300 text-xs">
+                        👁️
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Ações de Análise e Testes -->
+                <div class="pt-2 flex flex-col sm:flex-row gap-2.5">
+                  <button id="btnTestConnection" type="button" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium py-2.5 rounded-xl transition-colors border border-slate-700/60 flex items-center justify-center gap-1.5">
+                    <span>1. Testar Login & Permissões</span>
+                  </button>
+                  <button id="btnTestOsmandPort" type="button" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium py-2.5 rounded-xl transition-colors border border-slate-700/60 flex items-center justify-center gap-1.5">
+                    <span id="labelTestPort">2. Testar Porta :5055</span>
+                  </button>
+                  <button id="btnAnalyze" type="button" class="bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/30 text-xs font-semibold px-3 py-2.5 rounded-xl transition-colors">
+                    🔍 Analisar Base
+                  </button>
+                </div>
+
+                <!-- Caixa de Status / Diagnóstico da Conexão -->
+                <div id="connectionStatusText" class="text-xs text-slate-400 p-3.5 bg-slate-950 rounded-xl border border-slate-800/80 leading-relaxed">
+                  Status: Conexão ainda não testada.
+                </div>
+              </div>
+            </div>
+
+            <!-- Coluna Direita: Bateria de Diagnóstico & Teste de Criação de Dispositivos (5 cols) -->
+            <div class="lg:col-span-5 space-y-5">
+
+              <!-- Card de Diagnóstico Fim a Fim (Criação Real no Traccar) -->
+              <div class="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+                <div class="border-b border-slate-800/80 pb-3 flex items-center justify-between">
+                  <div>
+                    <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                      <span class="w-6 h-6 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center text-xs">🧪</span>
+                      Diagnóstico de Criação de Veículo
+                    </h3>
+                    <p class="text-[11px] text-slate-400 mt-0.5">
+                      Teste real de inserção na API <code class="text-indigo-300 font-mono">/api/devices</code> do seu Traccar.
+                    </p>
+                  </div>
+                </div>
+
+                <div class="text-xs text-slate-300 leading-relaxed bg-slate-950/60 p-3.5 rounded-2xl border border-slate-800/60 space-y-1.5">
+                  <div class="font-bold text-sky-400 text-[11px]">Por que os veículos podem não ser criados?</div>
+                  <ul class="text-[11px] text-slate-400 space-y-1 list-disc list-inside">
+                    <li>Conta Traccar com permissão <code class="text-amber-300 font-mono">deviceReadonly</code>.</li>
+                    <li>Limite de aparelhos da conta atingido (<code class="text-amber-300 font-mono">deviceLimit</code>).</li>
+                    <li>URL Traccar apontando para proxy com redirecionamento bloqueado.</li>
+                  </ul>
+                </div>
+
+                <div class="space-y-3 pt-1">
+                  <button id="btnTestCreateDevice" type="button" class="w-full bg-gradient-to-r from-indigo-600 to-sky-600 hover:from-indigo-500 hover:to-sky-500 text-white text-xs font-bold py-3 rounded-xl transition-all shadow-lg shadow-indigo-600/20 flex items-center justify-center gap-2">
+                    <span>🧪 Criar Veículo de Teste no Traccar</span>
+                  </button>
+
+                  <!-- Resultado do Teste de Criação -->
+                  <div id="deviceCreationDiagnosticBox" class="hidden text-xs p-3.5 rounded-2xl border transition-all">
+                    <!-- Preenchido dinamicamente via JS -->
+                  </div>
+                </div>
+              </div>
+
+              <!-- Card de Dicas de Troubleshooting -->
+              <div class="bg-slate-900/60 border border-slate-800/80 rounded-3xl p-5 shadow-lg space-y-3">
+                <h4 class="text-xs font-bold text-slate-300 flex items-center gap-2">
+                  <span class="text-amber-400">💡</span> Guia Rápido para Servidor Remoto:
+                </h4>
+                <ul class="text-[11px] text-slate-400 space-y-2 list-disc list-inside">
+                  <li><strong class="text-slate-300">Permissão Negada (403):</strong> Certifique-se de que a conta não possui a trava de somente leitura no Traccar.</li>
+                  <li><strong class="text-slate-300">Porta customizada:</strong> Em VPS (AWS, DigitalOcean, Hetzner), libere a porta TCP no Security Group/UFW.</li>
+                  <li><strong class="text-slate-300">Sincronização:</strong> Clique em <span class="text-emerald-400 font-semibold">Salvar Configurações</span> após alterar os campos para atualizar o motor de simulação.</li>
+                </ul>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+
+        <!-- ========================================================= -->
+        <!-- SUB-ABA 2: IMPORTAR DISPOSITIVOS DO TRACCAR               -->
+        <!-- ========================================================= -->
+        <div id="configSubPane_import" class="config-subpane hidden space-y-6">
+          <!-- 1. Painel de KPIs de Dispositivos Remotos -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-lg">
+              <div class="text-[11px] text-slate-400 font-medium">Total no Traccar</div>
+              <div id="kpiRemoteTotal" class="text-xl font-bold text-white font-mono mt-1">0</div>
+            </div>
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-lg">
+              <div class="text-[11px] text-emerald-400 font-medium flex items-center gap-1.5">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Dispositivos Online
+              </div>
+              <div id="kpiRemoteOnline" class="text-xl font-bold text-emerald-300 font-mono mt-1">0</div>
+            </div>
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-lg">
+              <div class="text-[11px] text-rose-400 font-medium flex items-center gap-1.5">
+                <span class="w-1.5 h-1.5 rounded-full bg-rose-400"></span> Dispositivos Offline
+              </div>
+              <div id="kpiRemoteOffline" class="text-xl font-bold text-rose-300 font-mono mt-1">0</div>
+            </div>
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-lg">
+              <div class="text-[11px] text-sky-400 font-medium">Protocolos Distintos</div>
+              <div id="kpiRemoteProtocols" class="text-xl font-bold text-sky-300 font-mono mt-1">0</div>
+            </div>
+          </div>
+
+          <!-- 2. Container Principal de Importação -->
+          <div class="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xl space-y-5">
+            <!-- Cabeçalho & Filtros -->
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
+              <div>
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                  <span>📥</span> Importação de Dispositivos Reais do Traccar
+                </h3>
+                <p class="text-xs text-slate-400 mt-0.5">
+                  Injete movimentações e rotas simuladas utilizando os identificadores únicos (IMEI) já cadastrados no seu servidor.
+                </p>
+              </div>
+
+              <div class="flex flex-wrap items-center gap-2.5">
+                <input type="text" id="searchRemoteDevicesInput" placeholder="Buscar por placa, nome ou IMEI..." class="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 font-mono focus:border-sky-500 w-56">
+                <select id="filterRemoteStatus" class="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:border-sky-500">
+                  <option value="all">Todos os Status</option>
+                  <option value="online">Apenas Online</option>
+                  <option value="offline">Apenas Offline</option>
+                </select>
+                <button id="btnRefreshRemoteDevices" type="button" class="bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold px-3.5 py-2 rounded-xl transition-all shadow-md shadow-sky-600/20 flex items-center gap-1.5">
+                  <span id="btnRefreshRemoteDevicesIcon">🔄</span>
+                  <span>Atualizar Base</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Tabela de Dispositivos -->
+            <div class="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950">
+              <table class="w-full text-left text-xs font-mono">
+                <thead class="bg-slate-900/90 text-slate-400 border-b border-slate-800 text-[11px] uppercase tracking-wider font-sans">
+                  <tr>
+                    <th class="py-3 px-4">Dispositivo / Nome</th>
+                    <th class="py-3 px-4">Identificador Único (IMEI)</th>
+                    <th class="py-3 px-4">Status no Traccar</th>
+                    <th class="py-3 px-4">Modelo / Protocolo</th>
+                    <th class="py-3 px-4">Últimas Coordenadas</th>
+                    <th class="py-3 px-4 text-center">Ação</th>
+                  </tr>
+                </thead>
+                <tbody id="remoteDevicesTableBody" class="divide-y divide-slate-800/50">
+                  <tr>
+                    <td colspan="6" class="py-12 text-center text-slate-500 font-sans text-xs">
+                      Clique em "Atualizar Base" para buscar os dispositivos do seu Traccar remoto.
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========================================================= -->
+        <!-- SUB-ABA 3: PROTOCOLOS & PORTAS                            -->
+        <!-- ========================================================= -->
+        <div id="configSubPane_protocols" class="config-subpane hidden space-y-6">
+          <!-- Grid com Formulário de Cadastro e Dicas Técnicas -->
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <!-- Formulário Permanente de Cadastro de Protocolo (7 colunas) -->
+            <div class="lg:col-span-7 bg-slate-900/90 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+              <div class="border-b border-slate-800/80 pb-3 flex items-center justify-between">
+                <div>
+                  <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                    <span>➕</span> Cadastrar / Habilitar Novo Protocolo
+                  </h3>
+                  <p class="text-xs text-slate-400 mt-0.5">
+                    Cadastre as portas de ingestão para os rastreadores físicos ou simuladores da sua frota.
+                  </p>
+                </div>
+              </div>
+
+              <div class="space-y-3.5">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Nome do Protocolo / Rastreador</label>
+                    <input type="text" id="newProtoName" placeholder="Ex: Teltonika FMB920, Suntech ST310, H02..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 font-mono focus:border-indigo-500">
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Porta de Ingestão (TCP/UDP)</label>
+                    <input type="number" id="newProtoPort" placeholder="Ex: 5027" min="1" max="65535" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 font-mono text-center focus:border-indigo-500">
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Tipo de Transporte</label>
+                    <select id="newProtoTransport" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 font-mono focus:border-indigo-500">
+                      <option value="TCP">TCP (Padrão de Rastreadores)</option>
+                      <option value="HTTP">HTTP (OsmAnd / Webhook)</option>
+                      <option value="UDP">UDP</option>
+                      <option value="TCP/UDP">TCP/UDP Híbrido</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1">Descrição / Modelo Compatível</label>
+                    <input type="text" id="newProtoDesc" placeholder="Ex: FMB920, FMB120, FMC130 Teltonika" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-100 font-mono focus:border-indigo-500">
+                  </div>
+                </div>
+
+                <div class="pt-2 flex justify-end">
+                  <button onclick="saveNewProtocol()" type="button" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-indigo-600/20 flex items-center gap-2">
+                    <span>+ Salvar e Adicionar Protocolo</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Guia de Apontamento e Portas (5 colunas) -->
+            <div class="lg:col-span-5 bg-slate-900/60 border border-slate-800/80 rounded-3xl p-5 shadow-lg space-y-3">
+              <h4 class="text-xs font-bold text-slate-200 flex items-center gap-2">
+                <span class="text-sky-400">💡</span> Como configurar os rastreadores no Traccar:
+              </h4>
+              <div class="text-[11px] text-slate-400 space-y-2 leading-relaxed">
+                <p>
+                  Cada rastreador físico deve ser configurado via comando SMS ou software de configuração apontando para:
+                </p>
+                <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800 font-mono text-[10px] text-slate-300 space-y-1">
+                  <div><span class="text-slate-500">IP/DNS Servidor:</span> Seu host Traccar remoto</div>
+                  <div><span class="text-slate-500">Porta:</span> A porta correspondente listada abaixo</div>
+                </div>
+                <p class="text-amber-300/90 text-[10px]">
+                  ⚠️ Lembre-se de liberar a porta no Firewall (AWS Security Group, UFW ou VPS) para permitir pacotes TCP/UDP de entrada.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Catálogo Completo de Protocolos e Teste de Conectividade -->
+          <div class="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-800/80 pb-3">
+              <div>
+                <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                  <span>📡</span> Catálogo de Protocolos & Teste de Conectividade
+                </h3>
+                <p class="text-xs text-slate-400 mt-0.5">
+                  Verifique a conectividade de cada porta em tempo real com teste de socket TCP.
+                </p>
+              </div>
+            </div>
+
+            <div class="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950">
+              <table class="w-full text-left text-xs font-mono">
+                <thead class="bg-slate-900/90 text-slate-400 border-b border-slate-800 text-[11px] uppercase tracking-wider font-sans">
+                  <tr>
+                    <th class="py-3 px-4">Protocolo / Fabricante</th>
+                    <th class="py-3 px-4">Porta</th>
+                    <th class="py-3 px-4">Transporte</th>
+                    <th class="py-3 px-4">Modelos Compatíveis</th>
+                    <th class="py-3 px-4 text-center">Testar Porta</th>
+                  </tr>
+                </thead>
+                <tbody id="protocolsTableBody" class="divide-y divide-slate-800/50">
+                  <!-- Renderizado dinamicamente via JS -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========================================================= -->
+        <!-- SUB-ABA 4: ATRIBUTOS CALCULADOS & SIMULAÇÃO               -->
+        <!-- ========================================================= -->
+        <div id="configSubPane_attributes" class="config-subpane hidden space-y-6">
+          <div class="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xl space-y-5">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
+              <div>
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                  <span>🎛️</span> Atributos Calculados & Injeção de Telemetria
+                </h3>
+                <p class="text-xs text-slate-400 mt-0.5">
+                  Puxe os atributos configurados em <code class="text-sky-300 font-mono">/settings/attributes</code> no seu Traccar e configure os valores exatos que o simulador deve injetar para disparar suas regras.
+                </p>
+              </div>
+
+              <div class="flex items-center gap-2.5">
+                <button onclick="addManualAttribute()" type="button" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold px-3.5 py-2.5 rounded-xl border border-slate-700 transition-colors flex items-center gap-1.5">
+                  <span>➕ Adicionar Atributo</span>
+                </button>
+                <button id="btnRefreshComputedAttributes" type="button" class="bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold px-4 py-2.5 rounded-xl transition-all shadow-md shadow-sky-600/20 flex items-center gap-1.5">
+                  <span id="btnRefreshComputedAttributesIcon">🔄</span>
+                  <span>Sincronizar com Traccar</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- TELA DE CONFIGURAÇÃO DE SIMULAÇÃO DOS ATRIBUTOS ("pedindo para simular eles na hora da configuração") -->
+            <div class="space-y-4">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h4 class="text-sm font-bold text-slate-200 flex items-center gap-2">
+                    <span>🎮</span> Valores a Injetar na Telemetria da Simulação
+                  </h4>
+                  <p class="text-xs text-slate-400 mt-0.5">
+                    Defina os valores que cada veículo simulado ou importado enviará ao Traccar em cada pacote.
+                  </p>
+                </div>
+                <button id="btnSaveSimulatedAttributes" onclick="saveSimulationAttributesConfig()" type="button" class="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all shadow-lg shadow-emerald-600/20 flex items-center gap-1.5 self-start sm:self-auto">
+                  <span id="btnSaveSimulatedAttributesIcon">💾</span>
+                  <span>Salvar Parâmetros para a Simulação</span>
+                </button>
+              </div>
+
+              <!-- Tabela Interativa de Injeção de Atributos com Inputs Reais -->
+              <div class="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950">
+                <table class="w-full text-left text-xs font-mono">
+                  <thead class="bg-slate-900/90 text-slate-400 border-b border-slate-800 text-[11px] uppercase tracking-wider font-sans">
+                    <tr>
+                      <th class="py-3 px-4 w-16 text-center">Ativar</th>
+                      <th class="py-3 px-4">Chave do Atributo</th>
+                      <th class="py-3 px-4">Descrição / Regra</th>
+                      <th class="py-3 px-4">Tipo</th>
+                      <th class="py-3 px-4">Valor a Injetar na Simulação</th>
+                      <th class="py-3 px-4 text-center">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody id="simulatedAttributesTableBody" class="divide-y divide-slate-800/50">
+                    <!-- Renderizado dinamicamente via JS com inputs reais -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Catálogo de Atributos Calculados (Regras JEXL do Traccar) -->
+            <div class="pt-4 border-t border-slate-800 space-y-3">
+              <h4 class="text-xs font-bold text-slate-300 flex items-center gap-2">
+                <span>📖</span> Regras JEXL Detectadas no Traccar (/settings/attributes):
+              </h4>
+
+              <div class="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-950">
+                <table class="w-full text-left text-xs font-mono">
+                  <thead class="bg-slate-900/90 text-slate-400 border-b border-slate-800 text-[11px] uppercase tracking-wider font-sans">
+                    <tr>
+                      <th class="py-3 px-4">Atributo</th>
+                      <th class="py-3 px-4">Descrição</th>
+                      <th class="py-3 px-4">Expressão JEXL</th>
+                      <th class="py-3 px-4">Tipo Retornado</th>
+                      <th class="py-3 px-4 text-center">Ação</th>
+                    </tr>
+                  </thead>
+                  <tbody id="computedAttributesTableBody" class="divide-y divide-slate-800/50">
+                    <tr>
+                      <td colspan="5" class="py-8 text-center text-slate-500 font-sans text-xs">
+                        Clique em "Sincronizar com Traccar" para carregar as regras de /settings/attributes.
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========================================================= -->
+  <!-- MODAL DE ALERTA DE SEGURANÇA OPERACIONAL: IMPORTAÇÃO REAL -->
+  <!-- ========================================================= -->
+  <div id="modalSecurityWarningImport" class="fixed inset-0 z-[3500] bg-black/85 backdrop-blur-md hidden items-center justify-center p-4">
+    <div class="bg-slate-900 border-2 border-rose-500/80 rounded-3xl max-w-xl w-full p-6 shadow-2xl space-y-5 relative animate-in fade-in zoom-in-95 duration-200">
+      
+      <!-- Cabeçalho de Perigo -->
+      <div class="flex items-start gap-4">
+        <div class="w-12 h-12 rounded-2xl bg-rose-500/20 border border-rose-500/40 text-rose-400 flex items-center justify-center text-2xl shrink-0">
+          ⚠️
+        </div>
+        <div class="space-y-1">
+          <div class="inline-block px-2.5 py-0.5 rounded-full bg-rose-500/20 border border-rose-500/40 text-[10px] font-bold text-rose-300 uppercase tracking-wider">
+            Alerta Crítico de Segurança Operacional
+          </div>
+          <h3 class="text-base font-bold text-white">
+            Simulação de Dispositivo Real
+          </h3>
+          <p class="text-xs text-slate-300 font-medium">
+            Você está prestes a associar um identificador real ao motor do simulador.
+          </p>
+        </div>
+      </div>
+
+      <!-- Detalhes do Dispositivo -->
+      <div class="bg-slate-950 p-3.5 rounded-2xl border border-slate-800 space-y-1 font-mono text-xs">
+        <div class="flex justify-between">
+          <span class="text-slate-400 font-sans">Veículo Selecionado:</span>
+          <span id="importModalDeviceName" class="text-white font-bold">-</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-slate-400 font-sans">Identificador Único (IMEI):</span>
+          <span id="importModalUniqueId" class="text-rose-400 font-bold">-</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-slate-400 font-sans">Modelo no Traccar:</span>
+          <span id="importModalModel" class="text-slate-300">-</span>
+        </div>
+      </div>
+
+      <!-- Texto de Aviso Obrigatório Solicitado pelo Usuário -->
+      <div class="bg-rose-950/40 border border-rose-500/50 rounded-2xl p-4 text-xs text-rose-200 leading-relaxed space-y-2">
+        <p class="font-bold text-rose-300 flex items-center gap-1.5">
+          <span>🛑</span> ATENÇÃO AOS RISCOS DE BLOQUEIO DO VEÍCULO:
+        </p>
+        <p>
+          Os dados de telemetria enviados pelo simulador <strong>irão sobrescrever a posição geográfica e o estado deste dispositivo real no Traccar</strong> e suas estatísticas de odômetro.
+        </p>
+        <p class="text-rose-100 font-semibold bg-rose-900/40 p-2 rounded-xl border border-rose-600/40">
+          Se houver regras de automação configuradas no Traccar ou em integrações externas (como alerta de velocidade, cerca virtual ou comandos automáticos de corte de combustível), <u>a simulação pode acionar comandos reais e BLOQUEAR O CARRO FÍSICO NO TRÂNSITO!</u>
+        </p>
+        <p class="text-[11px] text-rose-300/90">
+          Use esta funcionalidade com extremo cuidado, preferencialmente apenas em ambiente de homologação ou com dispositivos desinstalados da bancada de testes.
+        </p>
+      </div>
+
+      <!-- Checkbox de Confirmação de Risco -->
+      <div class="flex items-start gap-2.5 pt-1">
+        <input type="checkbox" id="checkConfirmSecurityRisk" class="mt-0.5 w-4 h-4 rounded border-rose-600 bg-slate-950 text-rose-600 focus:ring-rose-500">
+        <label for="checkConfirmSecurityRisk" class="text-xs text-slate-200 cursor-pointer select-none">
+          <strong>Estou ciente de todos os riscos operacionais</strong> e autorizo expressamente o simulador a injetar coordenadas e telemetrias neste identificador.
+        </label>
+      </div>
+
+      <!-- Botões de Ação -->
+      <div class="flex items-center justify-end gap-3 pt-2 border-t border-slate-800">
+        <button onclick="closeSecurityImportModal()" type="button" class="px-4 py-2.5 rounded-xl text-xs font-semibold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 transition-colors">
+          Cancelar com Segurança
+        </button>
+        <button id="btnConfirmImportDevice" disabled type="button" class="px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-rose-600 hover:bg-rose-500 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-lg shadow-rose-600/30 flex items-center gap-2">
+          <span>Confirmar Importação</span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  </main>
+
+  <!-- Modal Moderno de Inspeção de Payload / Request (Lupa) -->
+  <div id="payloadInspectorModal" class="fixed inset-0 z-[3000] bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full max-h-[85vh] flex flex-col shadow-2xl overflow-hidden relative">
+      <!-- Cabeçalho do Inspector -->
+      <div class="p-4 border-b border-slate-800 flex items-center justify-between shrink-0 bg-slate-900">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-xl bg-sky-500/10 text-sky-400 border border-sky-500/20 flex items-center justify-center text-sm font-bold">
+            🔍
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+              Inspeção de Payload & Requisição OsmAnd HTTP
+              <span id="payloadInspectorStatusBadge" class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">HTTP 200</span>
+            </h3>
+            <p id="payloadInspectorSubtitle" class="text-xs text-slate-400 font-mono">Disparo de telemetria</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="copyPayloadToClipboard()" id="btnCopyPayload" class="px-2.5 py-1 rounded-xl text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+            <span id="btnCopyPayloadText">Copiar JSON</span>
+          </button>
+          <button onclick="closePayloadInspectorModal()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Conteúdo do Inspector: Query Params + JSON Formatado -->
+      <div class="p-4 space-y-3 overflow-y-auto flex-1 font-mono text-xs">
+        <div>
+          <div class="text-[11px] font-semibold text-slate-400 mb-1 font-sans">URL / Query String Enviada (:5055)</div>
+          <div id="payloadInspectorUrl" class="bg-slate-950 p-2.5 rounded-xl border border-slate-800/80 text-sky-300 break-all select-all text-[11px]">
+            http://localhost:5055/?id=...
+          </div>
+        </div>
+
+        <div>
+          <div class="text-[11px] font-semibold text-slate-400 mb-1 font-sans">Corpo do Pacote (Payload Completo)</div>
+          <pre id="payloadInspectorJson" class="bg-slate-950 p-3 rounded-xl border border-slate-800/80 text-emerald-400 overflow-x-auto text-[11px] leading-relaxed select-all">
+            { ... }
+          </pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Grande / Tela Cheia de Disparos de Telemetria OsmAnd -->
+  <div id="telemetryLogsModal" class="fixed inset-0 z-[2000] bg-black/75 backdrop-blur-sm hidden items-center justify-center p-4 sm:p-6">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-5xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden relative">
+      <!-- Cabeçalho do Modal de Logs -->
+      <div class="p-4 sm:p-5 border-b border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0 bg-slate-900/90">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center justify-center">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          </div>
+          <div>
+            <h3 class="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+              Console de Disparos OsmAnd HTTP (:5055)
+              <span id="modalLogsCountBadge" class="text-xs font-mono font-medium px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">0 pacotes</span>
+            </h3>
+            <p class="text-xs text-slate-400">Fluxo contínuo de pacotes GPS e telemetria persistidos no Traccar</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 pr-8 sm:pr-0">
+          <!-- Filtro por Veículo no Modal -->
+          <select id="modalLogsFilterVehicle" class="bg-slate-950 border border-slate-800 text-xs rounded-xl px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-sky-500 font-mono">
+            <option value="">Todos os Veículos</option>
+          </select>
+          <button id="btnToggleAutoScroll" onclick="toggleAutoScroll()" class="px-2.5 py-1.5 rounded-xl text-xs font-medium border border-slate-800 bg-slate-950 text-sky-400 hover:text-sky-300 transition-colors">
+            Rolagem: Auto
+          </button>
+          <button onclick="clearAllLogs()" class="px-2.5 py-1.5 rounded-xl text-xs font-medium border border-slate-800 bg-slate-950 text-slate-400 hover:text-slate-200 transition-colors">
+            Limpar
+          </button>
+        </div>
+
+        <button onclick="closeTelemetryModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Tabela Ampla com Rolagem Suave -->
+      <div class="flex-1 overflow-y-auto p-4" id="modalLogsScrollContainer">
+        <table class="w-full text-left text-xs font-mono">
+          <thead class="bg-slate-950 text-slate-400 sticky top-0 z-10 border-b border-slate-800">
+            <tr>
+              <th class="py-2.5 px-3">Horário</th>
+              <th class="py-2.5 px-3">Veículo / Placa</th>
+              <th class="py-2.5 px-3">Status Traccar</th>
+              <th class="py-2.5 px-3">Velocidade</th>
+              <th class="py-2.5 px-3">Ignição</th>
+              <th class="py-2.5 px-3">Tensão Bateria</th>
+              <th class="py-2.5 px-3">Coordenadas (Lat, Lon)</th>
+            </tr>
+          </thead>
+          <tbody id="modalLogsTableBody" class="divide-y divide-slate-800/40">
+            <tr>
+              <td colspan="7" class="py-16 text-center text-slate-500 font-sans text-xs">Aguardando novos disparos de telemetria...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Confirmação de Exclusão (Alerta Crítico) -->
+  <div id="confirmDeleteModal" class="fixed inset-0 z-[3000] bg-black/80 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl text-center space-y-4">
+      <div class="w-14 h-14 mx-auto rounded-2xl bg-rose-500/10 text-rose-400 border border-rose-500/20 flex items-center justify-center text-2xl font-bold">
+        ⚠️
+      </div>
+      <div>
+        <h3 id="confirmDeleteTitle" class="text-base font-bold text-white">Alerta de Exclusão</h3>
+        <p id="confirmDeleteMessage" class="text-xs text-slate-400 mt-1">
+          Tem certeza que deseja remover este veículo da simulação?
+        </p>
+      </div>
+      <div class="flex items-center justify-center gap-3 pt-2">
+        <button onclick="closeConfirmDeleteModal()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium py-2.5 rounded-xl transition-colors">
+          Cancelar
+        </button>
+        <button id="btnExecuteDeleteConfirm" class="flex-1 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold py-2.5 rounded-xl transition-colors shadow-lg shadow-rose-600/30">
+          Confirmar Exclusão
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <!-- Scripts da Aplicação -->
+  <script src="js/map.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

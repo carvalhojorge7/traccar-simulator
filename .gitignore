@@ -1,0 +1,26 @@
+# Logs e Temporários
+*.log
+.DS_Store
+Thumbs.db
+.playwright-cli/
+
+# Ambiente e Configurações Sensíveis
+.env
+.env.backup
+.env.production
+
+# Dependências
+node_modules/
+vendor/
+
+# Storage e Cache Laravel
+backend-laravel/storage/*.key
+backend-laravel/storage/logs/*.log
+backend-laravel/storage/framework/cache/data/*
+backend-laravel/storage/framework/sessions/*
+backend-laravel/storage/framework/views/*
+backend-laravel/bootstrap/cache/*.php
+
+# Banco SQLite local
+backend-laravel/database/database.sqlite
+backend-laravel/database/database.sqlite-journal
