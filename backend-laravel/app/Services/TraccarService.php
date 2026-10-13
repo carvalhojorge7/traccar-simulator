@@ -628,7 +628,11 @@ class TraccarService
         if (!empty($data['attributes']) && is_array($data['attributes'])) {
             foreach ($data['attributes'] as $key => $val) {
                 if (!isset($params[$key]) && $val !== null) {
-                    $params[$key] = $val;
+                    if (is_bool($val)) {
+                        $params[$key] = $val ? 'true' : 'false';
+                    } else {
+                        $params[$key] = $val;
+                    }
                 }
             }
         }

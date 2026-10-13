@@ -301,9 +301,7 @@ class SimulationEngine
             $payload['attributes']['alarm'] = $v->pendingAlarm;
             $v->pendingAlarm = null;
         }
-        if ($v->engineBlocked) {
-            $payload['attributes']['blocked'] = true;
-        }
+        $payload['attributes']['blocked'] = (bool) $v->engineBlocked;
         if ($v->externalPowerCut) {
             $payload['attributes']['powerCut'] = true;
         }
@@ -452,12 +450,21 @@ class SimulationEngine
         }
 
         if (array_key_exists('engineBlocked', $updates)) {
+            $prevBlocked = (bool) $v->engineBlocked;
             $v->engineBlocked = (bool) $updates['engineBlocked'];
             if ($v->engineBlocked) {
                 $v->speedKmh = 0.0;
                 $v->motion = false;
                 $v->state = 'PARKED_OFF';
                 $v->ignition = false;
+            } elseif ($prevBlocked && !$v->engineBlocked) {
+                // Ao desbloquear, se a ignição não foi forçada manualmente para falso, reativa o veículo
+                if ($v->manualIgnition !== false) {
+                    $v->ignition = true;
+                    $v->state = 'MOVING';
+                    $v->motion = true;
+                    $v->power = 13.8;
+                }
             }
         }
 
