@@ -32,24 +32,37 @@ class SimulationController extends Controller
             'osmandHost' => 'localhost',
             'osmandPort' => 5055,
             'sendIntervalSeconds' => 3,
+            'dbHost' => 'host.docker.internal',
+            'dbPort' => 5433,
+            'dbName' => 'traccar',
+            'dbUser' => 'traccar',
+            'dbPassword' => 'traccar_password',
+            'pollingEnabled' => true,
         ];
         $config = Cache::get('traccar_config', $default);
         return response()->json([
             'success' => true,
-            'config' => $config,
+            'config' => array_merge($default, $config),
         ]);
     }
 
     public function saveTraccarConfig(Request $request): JsonResponse
     {
-        $config = [
-            'restUrl' => $this->traccarService->normalizeUrl($request->input('url', 'http://localhost:8082')),
-            'username' => $request->input('username', 'admin'),
-            'password' => $request->input('password', 'admin'),
-            'osmandHost' => $request->input('osmandHost', 'localhost'),
-            'osmandPort' => (int) $request->input('osmandPort', 5055),
-            'sendIntervalSeconds' => (int) $request->input('sendIntervalSeconds', 3),
-        ];
+        $existing = Cache::get('traccar_config', []);
+        $config = array_merge($existing, [
+            'restUrl' => $this->traccarService->normalizeUrl($request->input('url', $existing['restUrl'] ?? 'http://localhost:8082')),
+            'username' => $request->input('username', $existing['username'] ?? 'admin'),
+            'password' => $request->input('password', $existing['password'] ?? 'admin'),
+            'osmandHost' => $request->input('osmandHost', $existing['osmandHost'] ?? 'localhost'),
+            'osmandPort' => (int) $request->input('osmandPort', $existing['osmandPort'] ?? 5055),
+            'sendIntervalSeconds' => (int) $request->input('sendIntervalSeconds', $existing['sendIntervalSeconds'] ?? 3),
+            'dbHost' => $request->input('dbHost', $existing['dbHost'] ?? 'host.docker.internal'),
+            'dbPort' => (int) $request->input('dbPort', $existing['dbPort'] ?? 5433),
+            'dbName' => $request->input('dbName', $existing['dbName'] ?? 'traccar'),
+            'dbUser' => $request->input('dbUser', $existing['dbUser'] ?? 'traccar'),
+            'dbPassword' => $request->input('dbPassword', $existing['dbPassword'] ?? 'traccar_password'),
+            'pollingEnabled' => $request->has('pollingEnabled') ? (bool) $request->input('pollingEnabled') : ($existing['pollingEnabled'] ?? true),
+        ]);
 
         Cache::forever('traccar_config', $config);
 
@@ -58,6 +71,57 @@ class SimulationController extends Controller
             'message' => 'Configurações salvas e ativas com sucesso no backend!',
             'config' => $config,
         ]);
+    }
+
+    /**
+     * Testa conectividade com a fila de comandos (PostgreSQL) do Traccar.
+     */
+    public function testTraccarDb(Request $request): JsonResponse
+    {
+        $conf = Cache::get('traccar_config', []);
+        $config = [
+            'dbHost' => $request->input('dbHost', $conf['dbHost'] ?? 'host.docker.internal'),
+            'dbPort' => (int) $request->input('dbPort', $conf['dbPort'] ?? 5433),
+            'dbName' => $request->input('dbName', $conf['dbName'] ?? 'traccar'),
+            'dbUser' => $request->input('dbUser', $conf['dbUser'] ?? 'traccar'),
+            'dbPassword' => $request->input('dbPassword', $conf['dbPassword'] ?? 'traccar_password'),
+        ];
+
+        $res = $this->traccarService->testDatabaseConnection($config);
+        return response()->json($res, $res['success'] ? 200 : 400);
+    }
+
+    /**
+     * Endpoint direto ou webhook para receber comandos e refleti-los na simulação.
+     */
+    public function handleIncomingCommand(Request $request): JsonResponse
+    {
+        $uniqueId = $request->input('uniqueId');
+        $type = $request->input('type', 'custom');
+        $data = $request->input('data', '');
+
+        if (!$uniqueId) {
+            return response()->json(['success' => false, 'message' => 'uniqueId é obrigatório'], 400);
+        }
+
+        $v = Vehicle::where('uniqueId', $uniqueId)->first();
+        if (!$v) {
+            return response()->json(['success' => false, 'message' => "Veículo {$uniqueId} não encontrado no simulador"], 404);
+        }
+
+        $conf = Cache::get('traccar_config', []);
+        $host = $conf['osmandHost'] ?? 'localhost';
+        $port = (int) ($conf['osmandPort'] ?? 5055);
+
+        if (strtolower($type) === 'enginestop' || preg_match('/stop|corte|bloque|relay[,:\s]*1/i', (string)$data)) {
+            $this->engine->setVehicleSensor($uniqueId, ['engineBlocked' => true], $host, $port);
+            return response()->json(['success' => true, 'action' => 'blocked', 'message' => "Veículo {$uniqueId} bloqueado com sucesso."]);
+        } elseif (strtolower($type) === 'engineresume' || preg_match('/resume|reativ|desbloque|relay[,:\s]*0/i', (string)$data)) {
+            $this->engine->setVehicleSensor($uniqueId, ['engineBlocked' => false], $host, $port);
+            return response()->json(['success' => true, 'action' => 'unblocked', 'message' => "Veículo {$uniqueId} desbloqueado com sucesso."]);
+        }
+
+        return response()->json(['success' => true, 'action' => 'ignored', 'message' => "Comando {$type} recebido."]);
     }
 
     /**

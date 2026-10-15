@@ -70,11 +70,11 @@ class SimulationRunCommand extends Command
             $activePort = !empty($cachedConfig['osmandPort']) ? (int) $cachedConfig['osmandPort'] : $osmandPort;
             $activeInterval = !empty($cachedConfig['sendIntervalSeconds']) ? (int) $cachedConfig['sendIntervalSeconds'] : 3;
 
-            $currentTraccarConfig = [
+            $currentTraccarConfig = array_merge($cachedConfig, [
                 'osmandHost' => $activeHost,
                 'osmandPort' => $activePort,
                 'sendIntervalSeconds' => $activeInterval,
-            ];
+            ]);
 
             // Verifica se a simulação não foi pausada via API
             $isPaused = Cache::get('simulation_is_paused', false);

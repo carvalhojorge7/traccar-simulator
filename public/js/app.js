@@ -1675,6 +1675,7 @@ function setupEventListeners() {
   document.getElementById('btnSaveConfig')?.addEventListener('click', saveTraccarConfig);
   document.getElementById('btnTestConnection')?.addEventListener('click', testTraccarConnection);
   document.getElementById('btnTestOsmandPort')?.addEventListener('click', testOsmAndPort);
+  document.getElementById('btnTestDbConnection')?.addEventListener('click', testTraccarDbConnection);
   document.getElementById('btnTestCreateDevice')?.addEventListener('click', testCreateDeviceOnTraccar);
   document.getElementById('btnAnalyze')?.addEventListener('click', analyzeTraccar);
 
@@ -1791,7 +1792,13 @@ function getTraccarCredentials() {
     username: document.getElementById('traccarUser')?.value.trim() || 'admin',
     password: document.getElementById('traccarPass')?.value.trim() || 'admin',
     osmandHost: document.getElementById('traccarOsmandHost')?.value.trim() || undefined,
-    osmandPort: document.getElementById('traccarOsmandPort')?.value.trim() || 5055
+    osmandPort: document.getElementById('traccarOsmandPort')?.value.trim() || 5055,
+    dbHost: document.getElementById('traccarDbHost')?.value.trim() || 'host.docker.internal',
+    dbPort: parseInt(document.getElementById('traccarDbPort')?.value.trim() || '5433', 10),
+    dbName: document.getElementById('traccarDbName')?.value.trim() || 'traccar',
+    dbUser: document.getElementById('traccarDbUser')?.value.trim() || 'traccar',
+    dbPassword: document.getElementById('traccarDbPass')?.value.trim() || 'traccar_password',
+    pollingEnabled: document.getElementById('traccarPollingEnabled')?.checked !== false
   };
 }
 
@@ -1821,6 +1828,12 @@ async function loadSavedTraccarConfig() {
               password: parsed.password || 'admin',
               osmandHost: parsed.osmandHost || 'localhost',
               osmandPort: parsed.osmandPort || 5055,
+              dbHost: parsed.dbHost || 'host.docker.internal',
+              dbPort: parsed.dbPort || 5433,
+              dbName: parsed.dbName || 'traccar',
+              dbUser: parsed.dbUser || 'traccar',
+              dbPassword: parsed.dbPassword || 'traccar_password',
+              pollingEnabled: parsed.pollingEnabled !== false,
             };
           }
         } catch (_) {}
@@ -1844,6 +1857,24 @@ async function loadSavedTraccarConfig() {
         document.getElementById('traccarOsmandPort').value = cfg.osmandPort;
         const label = document.getElementById('labelTestPort');
         if (label) label.innerText = `2. Testar Porta :${cfg.osmandPort}`;
+      }
+      if (cfg.dbHost && document.getElementById('traccarDbHost')) {
+        document.getElementById('traccarDbHost').value = cfg.dbHost;
+      }
+      if (cfg.dbPort && document.getElementById('traccarDbPort')) {
+        document.getElementById('traccarDbPort').value = cfg.dbPort;
+      }
+      if (cfg.dbName && document.getElementById('traccarDbName')) {
+        document.getElementById('traccarDbName').value = cfg.dbName;
+      }
+      if (cfg.dbUser && document.getElementById('traccarDbUser')) {
+        document.getElementById('traccarDbUser').value = cfg.dbUser;
+      }
+      if (cfg.dbPassword && document.getElementById('traccarDbPass')) {
+        document.getElementById('traccarDbPass').value = cfg.dbPassword;
+      }
+      if (document.getElementById('traccarPollingEnabled')) {
+        document.getElementById('traccarPollingEnabled').checked = cfg.pollingEnabled !== false;
       }
     }
   } catch (err) {
@@ -2018,6 +2049,48 @@ async function testOsmAndPort() {
   } catch (err) {
     statusEl.className = 'text-xs text-rose-400 p-3.5 bg-rose-950/20 rounded-xl border border-rose-500/30';
     statusEl.innerText = `✗ Erro ao testar porta :${targetPort}: ${err.message}`;
+  }
+}
+
+async function testTraccarDbConnection() {
+  const creds = getTraccarCredentials();
+  const statusEl = document.getElementById('connectionStatusText');
+
+  statusEl.className = 'text-xs text-sky-400 p-3.5 bg-slate-950 rounded-xl border border-slate-800/80';
+  statusEl.innerHTML = '<span class="inline-block animate-spin mr-1.5">⟳</span> Conectando ao banco PostgreSQL do Traccar e verificando fila de comandos...';
+
+  try {
+    const res = await fetch('/api/traccar/test-db', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(creds)
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      statusEl.className = 'text-xs text-emerald-300 p-3.5 bg-emerald-950/20 rounded-xl border border-emerald-500/30 space-y-1';
+      statusEl.innerHTML = `
+        <div class="font-bold text-emerald-400 flex items-center gap-1.5">
+          <span>✓</span> Banco de Dados Traccar Conectado com Sucesso!
+        </div>
+        <div class="text-[11px] text-slate-200">${data.message}</div>
+        <div class="text-[10px] text-slate-400 font-mono">Latência: ${data.latencyMs}ms | Fila de Comandos (tc_commands_queue): <strong>${data.pendingCommandsCount}</strong> comando(s) pendente(s)</div>
+      `;
+    } else {
+      statusEl.className = 'text-xs text-rose-300 p-3.5 bg-rose-950/20 rounded-xl border border-rose-500/30 space-y-1';
+      statusEl.innerHTML = `
+        <div class="font-bold text-rose-400 flex items-center gap-1.5">
+          <span>✗</span> Falha ao Conectar ao Banco de Dados do Traccar
+        </div>
+        <div class="text-[11px] text-slate-200">${data.message}</div>
+        <div class="text-[10px] text-amber-300/90 pt-1">
+          💡 Verifique se o PostgreSQL do Traccar está ativo na porta informada (ex: container 5433 ou 5432) e se as credenciais estão corretas.
+        </div>
+      `;
+    }
+  } catch (err) {
+    statusEl.className = 'text-xs text-rose-400 p-3.5 bg-rose-950/20 rounded-xl border border-rose-500/30';
+    statusEl.innerText = `✗ Erro ao testar banco de dados: ${err.message}`;
   }
 }
 
@@ -3403,9 +3476,12 @@ function renderModalLogsTable() {
         <span class="text-[10px] text-slate-400 block font-mono">ID: ${item.uniqueId}</span>
       </td>
       <td class="py-2.5 px-3 whitespace-nowrap">
-        <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${item.success ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}">
-          ${item.success ? `HTTP ${item.status}` : 'FALHA HTTP'}
-        </span>
+        ${item.isCommand
+          ? `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">COMANDO TRACCAR</span>`
+          : `<span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${item.success ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}">
+              ${item.success ? `HTTP ${item.status}` : 'FALHA HTTP'}
+            </span>`
+        }
       </td>
       <td class="py-2.5 px-3 text-slate-200 whitespace-nowrap">${item.speedKmh} km/h</td>
       <td class="py-2.5 px-3 whitespace-nowrap">
@@ -3424,9 +3500,49 @@ function renderModalLogsTable() {
   }
 }
 
+function showCommandToast(vehicleName, message) {
+  let toastContainer = document.getElementById('commandToastContainer');
+  if (!toastContainer) {
+    toastContainer = document.createElement('div');
+    toastContainer.id = 'commandToastContainer';
+    toastContainer.className = 'fixed top-5 right-5 z-50 flex flex-col gap-2.5 max-w-sm pointer-events-none';
+    document.body.appendChild(toastContainer);
+  }
+
+  const toast = document.createElement('div');
+  const isBlock = message.includes('BLOQUEIO');
+  toast.className = `p-3.5 rounded-2xl border shadow-2xl transition-all duration-300 transform translate-y-0 opacity-100 flex items-start gap-3 pointer-events-auto ${
+    isBlock
+      ? 'bg-rose-950/90 border-rose-500/50 text-rose-200 shadow-rose-900/30'
+      : 'bg-emerald-950/90 border-emerald-500/50 text-emerald-200 shadow-emerald-900/30'
+  }`;
+
+  toast.innerHTML = `
+    <span class="text-base">${isBlock ? '🛑' : '🟢'}</span>
+    <div class="flex-1">
+      <div class="font-bold text-xs ${isBlock ? 'text-rose-300' : 'text-emerald-300'} flex items-center justify-between">
+        <span>Comando Traccar Refletido</span>
+        <span class="text-[9px] font-mono opacity-70">${new Date().toLocaleTimeString()}</span>
+      </div>
+      <div class="text-[11px] font-medium text-white mt-0.5">${vehicleName}</div>
+      <div class="text-[10px] text-slate-300 mt-0.5 leading-snug">${message}</div>
+    </div>
+  `;
+
+  toastContainer.appendChild(toast);
+  setTimeout(() => {
+    toast.style.opacity = '0';
+    toast.style.transform = 'translateY(-10px)';
+    setTimeout(() => toast.remove(), 300);
+  }, 4500);
+}
+
 function addLogEntry(data) {
   totalDispatchesCount++;
   const log = data.log || {};
+
+  const isCommand = (log.request_url && log.request_url.includes('TRACCAR_COMMAND_RECEIVED')) ||
+                    (log.response && typeof log.response === 'string' && log.response.includes('COMANDO REFLETIDO'));
 
   const entry = {
     id: 'log_' + Date.now() + '_' + Math.floor(Math.random() * 100000),
@@ -3440,10 +3556,16 @@ function addLogEntry(data) {
     power: log.power || (log.ignition ? '13.8' : '12.4'),
     lat: log.lat || '0.00000',
     lon: log.lon || '0.00000',
-    url: log.url || '',
+    url: log.url || log.request_url || '',
     params: log.params || log.payload || {},
-    payload: log.payload || log.params || {}
+    payload: log.payload || log.params || {},
+    isCommand: Boolean(isCommand),
+    commandAction: isCommand ? (log.response || 'Comando Traccar') : null
   };
+
+  if (isCommand) {
+    showCommandToast(data.name || data.uniqueId, log.response || 'Comando recebido do Traccar');
+  }
 
   telemetryLogsHistory.unshift(entry);
   if (telemetryLogsHistory.length > 250) {

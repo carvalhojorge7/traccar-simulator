@@ -488,15 +488,60 @@
                   </div>
                 </div>
 
+                <!-- Configuração de Polling de Comandos Traccar (PostgreSQL) -->
+                <div class="pt-3 border-t border-slate-800/80 space-y-3">
+                  <div class="flex items-center justify-between">
+                    <div>
+                      <label class="block text-xs font-semibold text-white flex items-center gap-1.5">
+                        <span>🔄 Polling de Comandos do Traccar</span>
+                        <span class="text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded-full font-mono border border-emerald-500/20">Fila tc_commands_queue</span>
+                      </label>
+                      <p class="text-[10px] text-slate-400 mt-0.5">
+                        Detecta comandos de bloqueio (engineStop), desbloqueio (engineResume) e custom enviados no Traccar e reflete instantaneamente nos veículos simulados.
+                      </p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" id="traccarPollingEnabled" class="sr-only peer" checked>
+                      <div class="w-9 h-5 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-emerald-600"></div>
+                    </label>
+                  </div>
+
+                  <div id="traccarDbFieldsContainer" class="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <div class="sm:col-span-2">
+                      <label class="block text-[10px] text-slate-400 mb-0.5">Host do Banco Postgres</label>
+                      <input type="text" id="traccarDbHost" value="host.docker.internal" placeholder="host.docker.internal ou localhost" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-100 font-mono focus:border-emerald-500">
+                    </div>
+                    <div>
+                      <label class="block text-[10px] text-slate-400 mb-0.5">Porta Postgres</label>
+                      <input type="number" id="traccarDbPort" value="5433" placeholder="5433" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-100 font-mono text-center focus:border-emerald-500">
+                    </div>
+                    <div>
+                      <label class="block text-[10px] text-slate-400 mb-0.5">Nome do Banco</label>
+                      <input type="text" id="traccarDbName" value="traccar" placeholder="traccar" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-100 font-mono focus:border-emerald-500">
+                    </div>
+                    <div>
+                      <label class="block text-[10px] text-slate-400 mb-0.5">Usuário Postgres</label>
+                      <input type="text" id="traccarDbUser" value="traccar" placeholder="traccar" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-100 font-mono focus:border-emerald-500">
+                    </div>
+                    <div>
+                      <label class="block text-[10px] text-slate-400 mb-0.5">Senha Postgres</label>
+                      <input type="password" id="traccarDbPass" value="traccar_password" placeholder="••••••" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-slate-100 font-mono focus:border-emerald-500">
+                    </div>
+                  </div>
+                </div>
+
                 <!-- Ações de Análise e Testes -->
-                <div class="pt-2 flex flex-col sm:flex-row gap-2.5">
-                  <button id="btnTestConnection" type="button" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium py-2.5 rounded-xl transition-colors border border-slate-700/60 flex items-center justify-center gap-1.5">
-                    <span>1. Testar Login & Permissões</span>
+                <div class="pt-2 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+                  <button id="btnTestConnection" type="button" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium py-2 rounded-xl transition-colors border border-slate-700/60 flex items-center justify-center gap-1.5">
+                    <span>1. Testar Login</span>
                   </button>
-                  <button id="btnTestOsmandPort" type="button" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium py-2.5 rounded-xl transition-colors border border-slate-700/60 flex items-center justify-center gap-1.5">
-                    <span id="labelTestPort">2. Testar Porta :5055</span>
+                  <button id="btnTestOsmandPort" type="button" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium py-2 rounded-xl transition-colors border border-slate-700/60 flex items-center justify-center gap-1.5">
+                    <span id="labelTestPort">2. Testar Ingestão</span>
                   </button>
-                  <button id="btnAnalyze" type="button" class="bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/30 text-xs font-semibold px-3 py-2.5 rounded-xl transition-colors">
+                  <button id="btnTestDbConnection" type="button" class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium py-2 rounded-xl transition-colors border border-slate-700/60 flex items-center justify-center gap-1.5">
+                    <span>3. Testar Fila (DB)</span>
+                  </button>
+                  <button id="btnAnalyze" type="button" class="bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/30 text-xs font-semibold px-2 py-2 rounded-xl transition-colors">
                     🔍 Analisar Base
                   </button>
                 </div>

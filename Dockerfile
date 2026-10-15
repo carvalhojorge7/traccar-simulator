@@ -6,11 +6,12 @@ RUN apk add --no-cache \
     git \
     sqlite \
     sqlite-dev \
+    postgresql-dev \
     libzip-dev \
     zip \
     unzip \
     linux-headers \
-    && docker-php-ext-install pcntl pdo_sqlite zip
+    && docker-php-ext-install pcntl pdo_sqlite pdo_pgsql zip
 
 # Instala Composer oficial
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer

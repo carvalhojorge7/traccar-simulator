@@ -9,7 +9,10 @@ Route::post('/traccar/config', [SimulationController::class, 'saveTraccarConfig'
 Route::post('/traccar/test', [SimulationController::class, 'testTraccarConnection']);
 Route::post('/traccar/test-osmand', [SimulationController::class, 'testOsmAnd']);
 Route::post('/traccar/test-port', [SimulationController::class, 'testCustomPort']);
+Route::post('/traccar/test-db', [SimulationController::class, 'testTraccarDb']);
 Route::post('/traccar/test-create-device', [SimulationController::class, 'testCreateDevice']);
+Route::post('/traccar/commands/incoming', [SimulationController::class, 'handleIncomingCommand']);
+Route::post('/traccar/webhook', [SimulationController::class, 'handleIncomingCommand']);
 Route::delete('/traccar/devices/{id}', [SimulationController::class, 'deleteTraccarDevice']);
 Route::post('/traccar/analyze', [SimulationController::class, 'analyzeTraccar']);
 
