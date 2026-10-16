@@ -137,12 +137,28 @@ docker compose logs -f app
 docker compose down
 ```
 
-### Variáveis Opcionais (`.env` ou ambiente)
+### Variáveis de Ambiente (`.env` ou docker-compose)
 | Variável | Padrão | Descrição |
 | :--- | :--- | :--- |
-| `APP_PORT` | `8000` | Porta exposta no host |
+| `APP_PORT` | `8090` | Porta HTTP exposta no host |
+| `ADMIN_USER` | `admin` | Usuário/login do administrador do painel |
+| `ADMIN_PASSWORD` | `admin` | Senha de acesso administrativo ao painel |
 | `TRACCAR_HOST` | `traccar` / `localhost` | Host padrão para despacho de telemetria |
 | `TRACCAR_PORT` | `5055` | Porta padrão do protocolo OsmAnd |
+
+---
+
+## 🔐 Autenticação & Segurança do Painel
+
+O painel e as APIs do simulador contam com proteção por controle de acesso:
+- **Tela de Login Dedicada**: Redirecionamento automático de usuários não autorizados para `/login`.
+- **Credenciais Configuráveis**: Definidas via variáveis `ADMIN_USER` e `ADMIN_PASSWORD` no `.env` (padrão: `admin` / `admin`).
+- **Autenticação Híbrida**:
+  - Sessão Web interativa com cookies seguros e opção "Lembrar neste navegador".
+  - API Bearer Tokens (Sanctum) emitidos no login para automação e integrações.
+  - HTTP Basic Auth (`curl -u admin:admin ...`) para scripts e sondagens.
+  - Suporte a query param `?token=...` para conexão no canal em tempo real via Server-Sent Events (SSE).
+- **Encerramento de Sessão**: Botão "Sair" integrado na barra superior do painel.
 
 ---
 

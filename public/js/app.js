@@ -1,3 +1,71 @@
+// Interceptador global de fetch para injeção de Bearer token e tratamento automático de 401
+const _originalFetch = window.fetch;
+window.fetch = async function(resource, config = {}) {
+  config = config || {};
+  const token = localStorage.getItem('traccar_sim_token');
+
+  if (token) {
+    if (!config.headers) {
+      config.headers = { 'Authorization': `Bearer ${token}` };
+    } else if (config.headers instanceof Headers) {
+      if (!config.headers.has('Authorization')) {
+        config.headers.set('Authorization', `Bearer ${token}`);
+      }
+    } else if (Array.isArray(config.headers)) {
+      if (!config.headers.some(h => h[0].toLowerCase() === 'authorization')) {
+        config.headers.push(['Authorization', `Bearer ${token}`]);
+      }
+    } else {
+      if (!config.headers['Authorization'] && !config.headers['authorization']) {
+        config.headers['Authorization'] = `Bearer ${token}`;
+      }
+    }
+  }
+
+  const response = await _originalFetch(resource, config);
+  if (response.status === 401 && !window.location.pathname.startsWith('/login')) {
+    localStorage.removeItem('traccar_sim_token');
+    window.location.href = '/login';
+  }
+  return response;
+};
+
+async function handleLogout() {
+  if (!confirm('Deseja realmente sair da sessão administrativa do painel?')) {
+    return;
+  }
+  try {
+    await fetch('/api/auth/logout', {
+      method: 'POST',
+      headers: { 'Accept': 'application/json' }
+    });
+  } catch (e) {
+    console.warn('Erro ao requisitar logout:', e);
+  }
+  localStorage.removeItem('traccar_sim_token');
+  localStorage.removeItem('traccar_sim_admin_user');
+  window.location.href = '/login';
+}
+
+async function checkAuthStatus() {
+  try {
+    const res = await fetch('/api/auth/user', {
+      headers: { 'Accept': 'application/json' }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const el = document.getElementById('headerAdminUser');
+      if (el && data.user && data.user.name) {
+        el.textContent = data.user.name;
+      }
+    } else if (res.status === 401) {
+      window.location.href = '/login';
+    }
+  } catch (e) {
+    console.warn('Erro ao verificar autenticação inicial:', e);
+  }
+}
+
 // Script Principal do Dashboard do Traccar Simulator com Abas
 let mapManager = null;
 let ws = null;
@@ -10,6 +78,8 @@ let selectedFleetVehicleIds = new Set();
 let pendingDeleteAction = null;
 
 document.addEventListener('DOMContentLoaded', () => {
+  checkAuthStatus();
+
   // Inicializa o Mapa com suporte à cidade salva ou padrão
   const savedCity = localStorage.getItem('traccar_sim_selected_city');
   let initLat = -23.5505;
@@ -211,7 +281,9 @@ function setupWebSocket() {
 
 function setupSSE() {
   try {
-    const sse = new EventSource('/api/simulation/events');
+    const token = localStorage.getItem('traccar_sim_token');
+    const sseUrl = token ? `/api/simulation/events?token=${encodeURIComponent(token)}` : '/api/simulation/events';
+    const sse = new EventSource(sseUrl);
 
     sse.onopen = () => {
       console.log('⚡ Conectado ao canal SSE do Simulador (Laravel)');

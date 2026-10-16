@@ -114,4 +114,19 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Credenciais do Administrador do Simulador (via .env)
+    |--------------------------------------------------------------------------
+    |
+    | Credenciais mestras configuráveis via .env para autenticação e bloqueio
+    | de acesso público ao painel e às APIs do simulador.
+    |
+    */
+
+    'admin' => [
+        'user' => env('ADMIN_USER', env('ADMIN_LOGIN', 'admin')),
+        'password' => env('ADMIN_PASSWORD', env('ADMIN_PASS', 'admin')),
+    ],
+
 ];

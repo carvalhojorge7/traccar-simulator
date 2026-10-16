@@ -10,6 +10,17 @@ class SimulationApiTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $user = \App\Models\User::firstOrCreate(
+            ['name' => 'admin'],
+            ['email' => 'admin@simulator.local', 'password' => \Illuminate\Support\Facades\Hash::make('admin')]
+        );
+        $this->actingAs($user);
+    }
+
     public function test_simulation_status_returns_successful_structure(): void
     {
         $response = $this->getJson('/api/simulation/status');
