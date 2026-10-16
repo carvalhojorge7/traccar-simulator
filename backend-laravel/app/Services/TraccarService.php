@@ -700,167 +700,40 @@ class TraccarService
     }
 
     /**
-     * Obtém conexão PDO com o PostgreSQL do Traccar para leitura direta da fila de comandos.
+     * O simulador não requer nem aguarda conexão direta com o banco de dados do Traccar.
+     * A comunicação de comandos e telemetria opera 100% via OsmAnd HTTP (:5055) e Webhooks.
      */
     public function getTraccarDatabaseConnection(array $config = []): ?\PDO
     {
-        $cached = Cache::get('traccar_config', []);
-
-        $host = $config['dbHost'] ?? ($cached['dbHost'] ?? env('TRACCAR_DB_HOST', 'host.docker.internal'));
-        $port = (int) ($config['dbPort'] ?? ($cached['dbPort'] ?? env('TRACCAR_DB_PORT', 5433)));
-        $dbname = $config['dbName'] ?? ($cached['dbName'] ?? env('TRACCAR_DB_DATABASE', 'traccar'));
-        $user = $config['dbUser'] ?? ($cached['dbUser'] ?? env('TRACCAR_DB_USERNAME', 'traccar'));
-        $password = $config['dbPassword'] ?? ($cached['dbPassword'] ?? env('TRACCAR_DB_PASSWORD', 'traccar_password'));
-
-        $candidates = [
-            ['host' => $host, 'port' => $port],
-        ];
-
-        // Se o host configurado for host.docker.internal e falhar ou localhost, testa alternativas automáticas
-        if ($host === 'host.docker.internal' || $host === 'localhost' || $host === '127.0.0.1') {
-            $candidates[] = ['host' => 'host.docker.internal', 'port' => 5433];
-            $candidates[] = ['host' => '127.0.0.1', 'port' => 5433];
-            $candidates[] = ['host' => 'localhost', 'port' => 5433];
-            $candidates[] = ['host' => 'traccar-db', 'port' => 5432];
-            $candidates[] = ['host' => 'db', 'port' => 5432];
-        }
-
-        foreach ($candidates as $cand) {
-            try {
-                $dsn = "pgsql:host={$cand['host']};port={$cand['port']};dbname={$dbname};connect_timeout=2";
-                $pdo = new \PDO($dsn, $user, $password, [
-                    \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
-                    \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
-                    \PDO::ATTR_TIMEOUT => 2,
-                ]);
-                return $pdo;
-            } catch (\Throwable $e) {
-                // Continua para o próximo candidato silenciosamente
-            }
-        }
-
         return null;
     }
 
     /**
-     * Testa conectividade com o banco de dados do Traccar.
+     * Informa que o simulador opera desacoplado do banco de dados do Traccar.
      */
     public function testDatabaseConnection(array $config = []): array
     {
-        $start = microtime(true);
-        try {
-            $pdo = $this->getTraccarDatabaseConnection($config);
-            if (!$pdo) {
-                return [
-                    'success' => false,
-                    'latencyMs' => round((microtime(true) - $start) * 1000),
-                    'message' => 'Não foi possível conectar ao banco PostgreSQL do Traccar. Verifique host, porta e credenciais.',
-                    'pendingCommandsCount' => 0,
-                ];
-            }
-
-            $stmt = $pdo->query("SELECT COUNT(*) as count FROM tc_commands_queue");
-            $row = $stmt->fetch();
-            $count = (int) ($row['count'] ?? 0);
-            $latencyMs = round((microtime(true) - $start) * 1000);
-
-            return [
-                'success' => true,
-                'latencyMs' => $latencyMs,
-                'pendingCommandsCount' => $count,
-                'message' => "Conexão com PostgreSQL do Traccar OK ({$latencyMs}ms)! Comandos pendentes na fila: {$count}",
-            ];
-        } catch (\Throwable $e) {
-            return [
-                'success' => false,
-                'latencyMs' => round((microtime(true) - $start) * 1000),
-                'message' => 'Erro ao conectar ao banco do Traccar: ' . $e->getMessage(),
-                'pendingCommandsCount' => 0,
-            ];
-        }
+        return [
+            'success' => true,
+            'latencyMs' => 0,
+            'message' => 'O simulador opera nativamente via OsmAnd HTTP e Webhooks, sem necessidade de conexão com o banco do Traccar.',
+            'pendingCommandsCount' => 0,
+        ];
     }
 
     /**
-     * Faz polling na fila de comandos do Traccar (tc_commands_queue) para veículos simulados.
+     * Comandos são recebidos nativamente via resposta HTTP do OsmAnd e Webhooks HTTP.
      */
     public function pollPendingCommands(array $config = []): array
     {
-        try {
-            $pdo = $this->getTraccarDatabaseConnection($config);
-            if (!$pdo) {
-                return [];
-            }
-
-            $sql = "
-                SELECT q.id, q.deviceid, q.type, q.attributes, d.uniqueid, d.name as device_name
-                FROM tc_commands_queue q
-                JOIN tc_devices d ON q.deviceid = d.id
-                ORDER BY q.id ASC
-            ";
-
-            $stmt = $pdo->query($sql);
-            $rows = $stmt->fetchAll();
-
-            $commands = [];
-            foreach ($rows as $row) {
-                $attrs = [];
-                if (!empty($row['attributes'])) {
-                    if (is_string($row['attributes'])) {
-                        $attrs = json_decode($row['attributes'], true) ?: [];
-                    } elseif (is_array($row['attributes'])) {
-                        $attrs = $row['attributes'];
-                    }
-                }
-
-                $commands[] = [
-                    'id' => (int) $row['id'],
-                    'deviceId' => (int) $row['deviceid'],
-                    'type' => (string) $row['type'],
-                    'attributes' => $attrs,
-                    'uniqueId' => (string) $row['uniqueid'],
-                    'deviceName' => (string) $row['device_name'],
-                ];
-            }
-
-            return $commands;
-        } catch (\Throwable $e) {
-            Log::debug('TraccarService::pollPendingCommands falhou: ' . $e->getMessage());
-            return [];
-        }
+        return [];
     }
 
     /**
-     * Confirma e remove um comando executado da fila (tc_commands_queue),
-     * registrando o evento queuedCommandSent no Traccar para manter sincronia perfeita.
+     * Confirmação de comando.
      */
     public function acknowledgeCommand(int $commandId, int $deviceId, array $config = []): bool
     {
-        try {
-            $pdo = $this->getTraccarDatabaseConnection($config);
-            if (!$pdo) {
-                return false;
-            }
-
-            // 1. Remove da fila
-            $stmtDel = $pdo->prepare("DELETE FROM tc_commands_queue WHERE id = :id");
-            $stmtDel->execute(['id' => $commandId]);
-
-            // 2. Insere evento de conclusão no Traccar para histórico e relatórios
-            try {
-                $stmtEvt = $pdo->prepare("
-                    INSERT INTO tc_events (type, eventtime, deviceid, attributes)
-                    VALUES ('queuedCommandSent', NOW(), :deviceid, :attrs)
-                ");
-                $stmtEvt->execute([
-                    'deviceid' => $deviceId,
-                    'attrs' => json_encode(['id' => $commandId]),
-                ]);
-            } catch (\Throwable $_) {}
-
-            return true;
-        } catch (\Throwable $e) {
-            Log::warning("Falha ao reconhecer comando #{$commandId}: " . $e->getMessage());
-            return false;
-        }
+        return true;
     }
 }

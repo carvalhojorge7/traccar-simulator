@@ -1747,7 +1747,6 @@ function setupEventListeners() {
   document.getElementById('btnSaveConfig')?.addEventListener('click', saveTraccarConfig);
   document.getElementById('btnTestConnection')?.addEventListener('click', testTraccarConnection);
   document.getElementById('btnTestOsmandPort')?.addEventListener('click', testOsmAndPort);
-  document.getElementById('btnTestDbConnection')?.addEventListener('click', testTraccarDbConnection);
   document.getElementById('btnTestCreateDevice')?.addEventListener('click', testCreateDeviceOnTraccar);
   document.getElementById('btnAnalyze')?.addEventListener('click', analyzeTraccar);
 
@@ -1865,12 +1864,6 @@ function getTraccarCredentials() {
     password: document.getElementById('traccarPass')?.value.trim() || 'admin',
     osmandHost: document.getElementById('traccarOsmandHost')?.value.trim() || undefined,
     osmandPort: document.getElementById('traccarOsmandPort')?.value.trim() || 5055,
-    dbHost: document.getElementById('traccarDbHost')?.value.trim() || 'host.docker.internal',
-    dbPort: parseInt(document.getElementById('traccarDbPort')?.value.trim() || '5433', 10),
-    dbName: document.getElementById('traccarDbName')?.value.trim() || 'traccar',
-    dbUser: document.getElementById('traccarDbUser')?.value.trim() || 'traccar',
-    dbPassword: document.getElementById('traccarDbPass')?.value.trim() || 'traccar_password',
-    pollingEnabled: document.getElementById('traccarPollingEnabled')?.checked !== false
   };
 }
 
@@ -1900,12 +1893,6 @@ async function loadSavedTraccarConfig() {
               password: parsed.password || 'admin',
               osmandHost: parsed.osmandHost || 'localhost',
               osmandPort: parsed.osmandPort || 5055,
-              dbHost: parsed.dbHost || 'host.docker.internal',
-              dbPort: parsed.dbPort || 5433,
-              dbName: parsed.dbName || 'traccar',
-              dbUser: parsed.dbUser || 'traccar',
-              dbPassword: parsed.dbPassword || 'traccar_password',
-              pollingEnabled: parsed.pollingEnabled !== false,
             };
           }
         } catch (_) {}
@@ -1929,24 +1916,6 @@ async function loadSavedTraccarConfig() {
         document.getElementById('traccarOsmandPort').value = cfg.osmandPort;
         const label = document.getElementById('labelTestPort');
         if (label) label.innerText = `2. Testar Porta :${cfg.osmandPort}`;
-      }
-      if (cfg.dbHost && document.getElementById('traccarDbHost')) {
-        document.getElementById('traccarDbHost').value = cfg.dbHost;
-      }
-      if (cfg.dbPort && document.getElementById('traccarDbPort')) {
-        document.getElementById('traccarDbPort').value = cfg.dbPort;
-      }
-      if (cfg.dbName && document.getElementById('traccarDbName')) {
-        document.getElementById('traccarDbName').value = cfg.dbName;
-      }
-      if (cfg.dbUser && document.getElementById('traccarDbUser')) {
-        document.getElementById('traccarDbUser').value = cfg.dbUser;
-      }
-      if (cfg.dbPassword && document.getElementById('traccarDbPass')) {
-        document.getElementById('traccarDbPass').value = cfg.dbPassword;
-      }
-      if (document.getElementById('traccarPollingEnabled')) {
-        document.getElementById('traccarPollingEnabled').checked = cfg.pollingEnabled !== false;
       }
     }
   } catch (err) {
@@ -2124,47 +2093,6 @@ async function testOsmAndPort() {
   }
 }
 
-async function testTraccarDbConnection() {
-  const creds = getTraccarCredentials();
-  const statusEl = document.getElementById('connectionStatusText');
-
-  statusEl.className = 'text-xs text-sky-400 p-3.5 bg-slate-950 rounded-xl border border-slate-800/80';
-  statusEl.innerHTML = '<span class="inline-block animate-spin mr-1.5">⟳</span> Conectando ao banco PostgreSQL do Traccar e verificando fila de comandos...';
-
-  try {
-    const res = await fetch('/api/traccar/test-db', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(creds)
-    });
-    const data = await res.json();
-
-    if (data.success) {
-      statusEl.className = 'text-xs text-emerald-300 p-3.5 bg-emerald-950/20 rounded-xl border border-emerald-500/30 space-y-1';
-      statusEl.innerHTML = `
-        <div class="font-bold text-emerald-400 flex items-center gap-1.5">
-          <span>✓</span> Banco de Dados Traccar Conectado com Sucesso!
-        </div>
-        <div class="text-[11px] text-slate-200">${data.message}</div>
-        <div class="text-[10px] text-slate-400 font-mono">Latência: ${data.latencyMs}ms | Fila de Comandos (tc_commands_queue): <strong>${data.pendingCommandsCount}</strong> comando(s) pendente(s)</div>
-      `;
-    } else {
-      statusEl.className = 'text-xs text-rose-300 p-3.5 bg-rose-950/20 rounded-xl border border-rose-500/30 space-y-1';
-      statusEl.innerHTML = `
-        <div class="font-bold text-rose-400 flex items-center gap-1.5">
-          <span>✗</span> Falha ao Conectar ao Banco de Dados do Traccar
-        </div>
-        <div class="text-[11px] text-slate-200">${data.message}</div>
-        <div class="text-[10px] text-amber-300/90 pt-1">
-          💡 Verifique se o PostgreSQL do Traccar está ativo na porta informada (ex: container 5433 ou 5432) e se as credenciais estão corretas.
-        </div>
-      `;
-    }
-  } catch (err) {
-    statusEl.className = 'text-xs text-rose-400 p-3.5 bg-rose-950/20 rounded-xl border border-rose-500/30';
-    statusEl.innerText = `✗ Erro ao testar banco de dados: ${err.message}`;
-  }
-}
 
 async function testCreateDeviceOnTraccar() {
   const creds = getTraccarCredentials();

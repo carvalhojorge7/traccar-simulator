@@ -42,12 +42,6 @@ class SimulationEngine
         $osmandPort = (int) ($traccarConfig['osmandPort'] ?? ($cachedConfig['osmandPort'] ?? config('services.traccar.osmand_port', 5055)));
         $sendInterval = (int) ($traccarConfig['sendIntervalSeconds'] ?? ($cachedConfig['sendIntervalSeconds'] ?? 3));
 
-        // 1. Polling de comandos pendentes no Traccar (tc_commands_queue via Postgres)
-        $commandLogs = $this->pollAndProcessCommands($traccarConfig, $osmandHost, $osmandPort);
-        if (!empty($commandLogs)) {
-            $dispatchedLogs = array_merge($dispatchedLogs, $commandLogs);
-        }
-
         $vehicles = Vehicle::all();
 
         foreach ($vehicles as $v) {
@@ -569,114 +563,14 @@ class SimulationEngine
     }
 
     /**
-     * Faz polling de comandos na fila do Traccar e reflete alterações físicas no simulador.
+     * Polling de comandos do Traccar.
+     * Comandos são refletidos nativamente via respostas HTTP OsmAnd e Webhooks HTTP.
      */
-    public function pollAndProcessCommands(array $traccarConfig, string $host, int $port): array
+    public function pollAndProcessCommands(array $traccarConfig = [], string $host = 'localhost', int $port = 5055): array
     {
-        $cachedConfig = Cache::get('traccar_config', []);
-        $mergedConfig = array_merge($cachedConfig, $traccarConfig);
-
-        // Se polling foi expressamente desabilitado
-        if (isset($mergedConfig['pollingEnabled']) && !$mergedConfig['pollingEnabled']) {
-            return [];
-        }
-
-        $pendingCommands = $this->traccarService->pollPendingCommands($mergedConfig);
-        if (empty($pendingCommands)) {
-            return [];
-        }
-
-        $commandLogs = [];
-
-        foreach ($pendingCommands as $cmd) {
-            $uniqueId = (string) $cmd['uniqueId'];
-            $v = Vehicle::where('uniqueId', $uniqueId)->first();
-            if (!$v) {
-                continue;
-            }
-
-            $type = strtolower($cmd['type'] ?? '');
-            $attrs = $cmd['attributes'] ?? [];
-            $dataStr = '';
-            if (is_array($attrs) && !empty($attrs['data'])) {
-                $dataStr = (string) $attrs['data'];
-            } elseif (is_string($attrs)) {
-                $dataStr = $attrs;
-            }
-
-            $actionDescription = null;
-
-            // 1. Bloqueio de Motor (engineStop ou comando customizado com corte/bloqueio)
-            if ($type === 'enginestop' || preg_match('/stop|corte|bloque|relay[,:\s]*1/i', $dataStr)) {
-                $v->engineBlocked = true;
-                $v->speedKmh = 0.0;
-                $v->motion = false;
-                $v->state = 'PARKED_OFF';
-                $v->ignition = false;
-                $actionDescription = "BLOQUEIO DE MOTOR aplicado via Traccar (#{$cmd['id']})";
-            }
-            // 2. Desbloqueio de Motor (engineResume ou comando customizado com desbloqueio/reativação)
-            elseif ($type === 'engineresume' || preg_match('/resume|reativ|desbloque|relay[,:\s]*0/i', $dataStr)) {
-                $v->engineBlocked = false;
-                if ($v->manualIgnition !== false) {
-                    $v->ignition = true;
-                    $v->state = 'MOVING';
-                    $v->motion = true;
-                    $v->power = 13.8;
-                }
-                $actionDescription = "DESBLOQUEIO DE MOTOR aplicado via Traccar (#{$cmd['id']})";
-            }
-            // 3. Reinicialização de Dispositivo (rebootDevice)
-            elseif ($type === 'rebootdevice' || preg_match('/reboot|reset/i', $dataStr)) {
-                $v->batteryTracker = 100;
-                $v->state = 'TRAFFIC_STOP';
-                $actionDescription = "REINICIALIZAÇÃO DO RASTREADOR simulada via Traccar (#{$cmd['id']})";
-            }
-            // 4. Pânico / SOS / Alarme
-            elseif ($type === 'alarm' || preg_match('/sos|panic|panico/i', $dataStr)) {
-                $v->pendingAlarm = 'sos';
-                $actionDescription = "ALARME SOS disparado via comando Traccar (#{$cmd['id']})";
-            } else {
-                $actionDescription = "Comando customizado recebido do Traccar: '{$cmd['type']}'" . ($dataStr ? " ({$dataStr})" : "");
-            }
-
-            $v->save();
-
-            // Confirma o comando no Traccar para dar baixa na fila tc_commands_queue
-            $this->traccarService->acknowledgeCommand((int) $cmd['id'], (int) $cmd['deviceId'], $mergedConfig);
-
-            // Despacha telemetria atualizada imediatamente para o Traccar
-            $this->dispatchTelemetryToTraccar($v, $host, $port);
-
-            $logEntry = [
-                'uniqueId' => $v->uniqueId,
-                'name' => $v->name,
-                'plate' => $v->plate,
-                'time' => date('H:i:s'),
-                'timestamp' => (int) (microtime(true) * 1000),
-                'success' => true,
-                'status' => 200,
-                'speedKmh' => (float) round($v->speedKmh),
-                'ignition' => (bool) $v->ignition,
-                'power' => number_format($v->externalPowerCut ? 0.0 : $v->power, 1, '.', ''),
-                'lat' => (float) round($v->currentLat, 5),
-                'lon' => (float) round($v->currentLon, 5),
-                'request_url' => "[TRACCAR_COMMAND_RECEIVED: {$cmd['type']}]",
-                'payload' => $cmd,
-                'response' => "[COMANDO REFLETIDO NO SIMULADOR] {$actionDescription}",
-            ];
-
-            TelemetryLog::create($logEntry);
-
-            $commandLogs[] = [
-                'uniqueId' => $v->uniqueId,
-                'name' => $v->name,
-                'log' => $logEntry,
-            ];
-        }
-
-        return $commandLogs;
+        return [];
     }
+
 
     /**
      * Processa comandos de texto retornados na resposta HTTP do OsmAnd.
