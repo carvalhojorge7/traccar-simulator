@@ -17,6 +17,7 @@ class Vehicle extends Model
         'manualIgnition' => 'boolean',
         'externalPowerCut' => 'boolean',
         'engineBlocked' => 'boolean',
+        'isImported' => 'boolean',
         'towingSim' => 'boolean',
         'shadowZone' => 'boolean',
         'currentLat' => 'float',
@@ -77,6 +78,8 @@ class Vehicle extends Model
             'towingSim' => (bool) $this->towingSim,
             'shadowZone' => (bool) $this->shadowZone,
             'offlineBufferCount' => $this->offline_buffer_count,
+            'isImported' => (bool) $this->isImported,
+            'isFake' => !(bool) $this->isImported,
             'pendingAlarm' => $this->pendingAlarm,
             'routePoints' => $this->routePoints ?? [],
         ];

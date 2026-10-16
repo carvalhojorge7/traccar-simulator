@@ -190,4 +190,108 @@ class SimulationApiTest extends TestCase
         $this->assertFalse($vehicle->engineBlocked);
         $this->assertTrue($vehicle->ignition);
     }
+
+    public function test_delete_imported_vehicle_preserves_in_traccar_and_removes_from_simulator(): void
+    {
+        $mockTraccar = $this->mock(\App\Services\TraccarService::class);
+        $mockTraccar->shouldNotReceive('deleteDevice');
+
+        $imported = Vehicle::create([
+            'uniqueId' => '999111222',
+            'name' => 'Real Tracker Imported',
+            'model' => 'Teltonika',
+            'category' => 'car',
+            'isImported' => true,
+        ]);
+
+        $res = $this->deleteJson("/api/simulation/vehicles/{$imported->uniqueId}");
+
+        $res->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'uniqueId' => '999111222',
+                'isImported' => true,
+                'removedFromSimulation' => true,
+                'removedFromTraccar' => false,
+            ]);
+
+        $this->assertNull(Vehicle::where('uniqueId', '999111222')->first());
+    }
+
+    public function test_delete_fake_vehicle_removes_from_simulator_and_traccar(): void
+    {
+        \Illuminate\Support\Facades\Cache::put('traccar_config', [
+            'restUrl' => 'http://localhost:8082',
+            'username' => 'admin',
+            'password' => 'admin',
+        ]);
+
+        $mockTraccar = $this->mock(\App\Services\TraccarService::class);
+        $mockTraccar->shouldReceive('deleteDevice')
+            ->once()
+            ->with('http://localhost:8082', 'admin', 'admin', '888222333')
+            ->andReturn(['success' => true, 'message' => 'Dispositivo removido do Traccar.']);
+
+        $fake = Vehicle::create([
+            'uniqueId' => '888222333',
+            'name' => 'Fake Simulator Vehicle',
+            'model' => 'OsmAnd',
+            'category' => 'car',
+            'isImported' => false,
+        ]);
+
+        $res = $this->deleteJson("/api/simulation/vehicles/{$fake->uniqueId}");
+
+        $res->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'uniqueId' => '888222333',
+                'isImported' => false,
+                'removedFromSimulation' => true,
+                'removedFromTraccar' => true,
+            ]);
+
+        $this->assertNull(Vehicle::where('uniqueId', '888222333')->first());
+    }
+
+    public function test_delete_batch_segregates_imported_and_fake_vehicles(): void
+    {
+        \Illuminate\Support\Facades\Cache::put('traccar_config', [
+            'restUrl' => 'http://localhost:8082',
+            'username' => 'admin',
+            'password' => 'admin',
+        ]);
+
+        $mockTraccar = $this->mock(\App\Services\TraccarService::class);
+        // Deve chamar deleteDevice APENAS para o fake
+        $mockTraccar->shouldReceive('deleteDevice')
+            ->once()
+            ->with('http://localhost:8082', 'admin', 'admin', 'FAKE_01')
+            ->andReturn(['success' => true]);
+
+        Vehicle::create([
+            'uniqueId' => 'FAKE_01',
+            'name' => 'Fake 1',
+            'isImported' => false,
+        ]);
+        Vehicle::create([
+            'uniqueId' => 'REAL_01',
+            'name' => 'Real 1',
+            'isImported' => true,
+        ]);
+
+        $res = $this->postJson('/api/simulation/vehicles/delete-batch', [
+            'uniqueIds' => ['FAKE_01', 'REAL_01'],
+        ]);
+
+        $res->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'removedCount' => 2,
+                'removedFakesFromTraccar' => ['FAKE_01'],
+                'preservedInTraccar' => ['REAL_01'],
+            ]);
+
+        $this->assertEquals(0, Vehicle::count());
+    }
 }

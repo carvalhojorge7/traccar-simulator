@@ -23,6 +23,7 @@ COPY backend-laravel/composer.json backend-laravel/composer.lock /var/www/backen
 RUN cd /var/www/backend-laravel && composer install --no-dev --no-scripts --no-autoloader --prefer-dist
 
 COPY . /var/www/
+RUN cp -r /var/www/backend-laravel/database/migrations /var/www/app-migrations
 
 # Gera autoload otimizado
 RUN cd /var/www/backend-laravel && composer dump-autoload --optimize --no-dev

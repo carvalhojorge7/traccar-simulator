@@ -17,6 +17,12 @@ if [ -z "$APP_KEY" ]; then
     php artisan key:generate --force
 fi
 
+# Sincroniza migrações da imagem com o volume persistente do banco
+if [ -d /var/www/app-migrations ]; then
+    mkdir -p database/migrations
+    cp -u /var/www/app-migrations/* database/migrations/ 2>/dev/null || cp /var/www/app-migrations/* database/migrations/ 2>/dev/null || true
+fi
+
 # Executa migrações do banco
 php artisan migrate --force
 

@@ -480,8 +480,22 @@ function updateFleetBadge() {
   const total = activeVehiclesMap.size;
   const badge = document.getElementById('tabFleetBadge');
   if (badge) badge.innerText = total;
+
+  let fakes = 0;
+  let imported = 0;
+  activeVehiclesMap.forEach(v => {
+    if (v.isImported) imported++;
+    else fakes++;
+  });
+
   const headerCount = document.getElementById('fleetHeaderCount');
-  if (headerCount) headerCount.innerText = `${total} veículos`;
+  if (headerCount) {
+    if (total === 0) {
+      headerCount.innerText = '0 veículos';
+    } else {
+      headerCount.innerHTML = `<span>${total} veículos</span> <span class="text-slate-400 font-normal">(${fakes} ⚡ Sintéticos • ${imported} 📥 Importados)</span>`;
+    }
+  }
 }
 
 // -------------------------------------------------------------
@@ -521,6 +535,13 @@ function renderFleetTab() {
     'MOVING': '<span class="text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded text-[11px] font-medium">Em Movimento</span>',
     'TRAFFIC_STOP': '<span class="text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded text-[11px] font-medium">Parado</span>',
     'PARKED_OFF': '<span class="text-rose-400 bg-rose-500/10 border border-rose-500/20 px-2 py-0.5 rounded text-[11px] font-medium">Desligado</span>'
+  };
+
+  const getFleetOriginBadgeHtml = (isImported) => {
+    if (isImported) {
+      return `<span title="Veículo real importado da base do Traccar (não será excluído do Traccar ao remover do simulador)" class="inline-flex items-center gap-1 text-[10px] font-bold text-sky-300 bg-sky-500/15 border border-sky-500/30 px-2 py-0.5 rounded-full shrink-0 shadow-xs"><svg class="w-2.5 h-2.5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>Importado</span>`;
+    }
+    return `<span title="Veículo sintético gerado pelo simulador (será excluído de ambos ao remover do simulador)" class="inline-flex items-center gap-1 text-[10px] font-bold text-purple-300 bg-purple-500/15 border border-purple-500/30 px-2 py-0.5 rounded-full shrink-0 shadow-xs"><svg class="w-2.5 h-2.5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>Sintético</span>`;
   };
 
   function getFleetPillsHtml(v) {
@@ -566,14 +587,18 @@ function renderFleetTab() {
       card.dataset.checked = String(isChecked);
       card.dataset.pills = pillsKey;
       card.dataset.ignition = String(v.ignition);
+      card.dataset.isImported = String(!!v.isImported);
 
       card.innerHTML = `
         <div class="flex items-start justify-between gap-2">
           <div class="flex items-start gap-2.5 min-w-0 pr-1">
             <input type="checkbox" ${isChecked ? 'checked' : ''} onclick="event.stopPropagation()" onchange="toggleVehicleSelection('${uid}', this.checked)" class="fleet-checkbox rounded bg-slate-950 border-slate-700 text-sky-500 focus:ring-0 w-4 h-4 cursor-pointer mt-1 shrink-0">
             <div class="min-w-0">
-              <div class="font-bold text-sm text-white group-hover:text-sky-400 transition-colors truncate">
-                ${v.name}
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="font-bold text-sm text-white group-hover:text-sky-400 transition-colors truncate">
+                  ${v.name}
+                </span>
+                <span class="fleet-origin-badge">${getFleetOriginBadgeHtml(v.isImported)}</span>
               </div>
               <div class="text-xs text-slate-400 font-mono mt-0.5 truncate">ID: ${v.uniqueId} | ${v.model}</div>
             </div>
@@ -648,6 +673,12 @@ function renderFleetTab() {
         card.dataset.state = v.state;
         const stateEl = card.querySelector('.fleet-card-state');
         if (stateEl) stateEl.innerHTML = stateBadges[v.state] || v.state;
+      }
+
+      if (card.dataset.isImported !== String(!!v.isImported)) {
+        card.dataset.isImported = String(!!v.isImported);
+        const originEl = card.querySelector('.fleet-origin-badge');
+        if (originEl) originEl.innerHTML = getFleetOriginBadgeHtml(v.isImported);
       }
 
       if (card.dataset.pills !== pillsKey) {
@@ -1059,6 +1090,10 @@ function updateVehicleDetailModalContent(v, forceRerender = false) {
     statusBadgesHtml += '<span class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-orange-500/20 text-orange-300 border border-orange-500/30">GUINCHO</span>';
   }
 
+  const originBadgeHtml = v.isImported
+    ? '<span title="Dispositivo real importado do Traccar (não será excluído do Traccar ao remover do simulador)" class="inline-flex items-center gap-1 text-[9px] font-bold text-sky-300 bg-sky-500/15 border border-sky-500/30 px-1.5 py-0.5 rounded-full shrink-0 shadow-xs"><svg class="w-2.5 h-2.5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>Importado</span>'
+    : '<span title="Veículo sintético gerado pelo simulador (será excluído de ambos ao remover do simulador)" class="inline-flex items-center gap-1 text-[9px] font-bold text-purple-300 bg-purple-500/15 border border-purple-500/30 px-1.5 py-0.5 rounded-full shrink-0 shadow-xs"><svg class="w-2.5 h-2.5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>Sintético</span>';
+
   const pillsKey = `${v.engineBlocked ? 1 : 0}-${v.externalPowerCut ? 1 : 0}-${v.shadowZone ? 1 : 0}-${v.towingSim ? 1 : 0}-${v.offlineBufferCount || 0}`;
 
   // Filtra logs específicos deste veículo
@@ -1066,7 +1101,7 @@ function updateVehicleDetailModalContent(v, forceRerender = false) {
   const logsCount = vehicleLogs.length;
 
   // 1. ATUALIZAÇÃO DO CABEÇALHO (HEADER) - PRESERVANDO ELEMENTOS DOM
-  const headerKey = `${v.uniqueId}-${vehicleModalMode}`;
+  const headerKey = `${v.uniqueId}-${vehicleModalMode}-${v.isImported ? 1 : 0}`;
   if (header.dataset.headerKey !== headerKey || forceRerender) {
     header.dataset.headerKey = headerKey;
     header.dataset.state = v.state;
@@ -1084,6 +1119,7 @@ function updateVehicleDetailModalContent(v, forceRerender = false) {
             <div class="min-w-0">
               <div class="flex items-center gap-2 flex-wrap">
                 <h3 class="text-xs font-bold text-white truncate">${v.name}</h3>
+                ${originBadgeHtml}
                 <span class="modal-state-badge text-[9px] px-1.5 py-0.2 rounded-full font-semibold ${st.badgeClass}">${st.label}</span>
               </div>
               <p class="text-[10px] text-slate-400 font-mono mt-0.5 truncate">
@@ -1109,6 +1145,7 @@ function updateVehicleDetailModalContent(v, forceRerender = false) {
             <div class="min-w-0">
               <div class="flex items-center gap-1.5 flex-wrap">
                 <h3 class="text-sm font-bold text-white truncate">${v.name}</h3>
+                ${originBadgeHtml}
                 <span class="modal-state-badge text-[10px] px-1.5 py-0.2 rounded-full font-semibold ${st.badgeClass}">
                   ${st.label}
                 </span>
@@ -1706,7 +1743,7 @@ function updateFollowVehicleSelect() {
   vehicles.forEach(v => {
     const opt = document.createElement('option');
     opt.value = v.uniqueId;
-    opt.innerText = v.name;
+    opt.innerText = `${v.isImported ? '📥' : '⚡'} ${v.name}`;
     select.appendChild(opt);
   });
 
@@ -3807,17 +3844,22 @@ window.closeConfirmDeleteModal = function() {
 window.removeSingleVehicle = function(uniqueId) {
   const v = activeVehiclesMap.get(uniqueId);
   const name = v ? v.name : uniqueId;
+  const isImported = v ? !!v.isImported : false;
   const creds = getTraccarCredentials();
 
+  const title = isImported ? 'Remover Veículo Importado' : 'Excluir Veículo Sintético';
+  const msg = isImported
+    ? `O veículo "${name}" foi IMPORTADO do Traccar.\n\n⚠️ Esta ação removerá o veículo APENAS do simulador local.\n✅ Ele permanecerá INTACTO e preservado no seu servidor Traccar.`
+    : `O veículo "${name}" é um dispositivo SINTÉTICO gerado pelo simulador.\n\n⚠️ Ele será excluído TANTO do simulador local quanto do servidor Traccar.`;
+
   openConfirmDeleteModal(
-    'Excluir Veículo',
-    `Tem certeza que deseja remover o veículo "${name}" da simulação?`,
+    title,
+    msg,
     async () => {
       await fetch(`/api/simulation/vehicles/${uniqueId}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          deleteInTraccar: true,
           traccarUrl: creds.url,
           traccarUser: creds.username,
           traccarPassword: creds.password
@@ -3835,6 +3877,7 @@ window.removeSingleVehicle = function(uniqueId) {
       updateFollowVehicleSelect();
       renderFleetTab();
       updateFleetSelectionUI();
+      renderHomeSidebarList();
     }
   );
 };
@@ -3844,9 +3887,26 @@ window.confirmDeleteSelectedVehicles = function() {
   if (count === 0) return;
   const creds = getTraccarCredentials();
 
+  let fakesCount = 0;
+  let importedCount = 0;
+  selectedFleetVehicleIds.forEach(uid => {
+    const v = activeVehiclesMap.get(uid);
+    if (v && v.isImported) importedCount++;
+    else fakesCount++;
+  });
+
+  let msg = `Tem certeza que deseja remover os ${count} veículos selecionados?`;
+  if (fakesCount > 0 && importedCount > 0) {
+    msg += `\n\n• ${fakesCount} veículos sintéticos serão removidos do simulador e do Traccar.\n• ${importedCount} veículos importados serão removidos APENAS do simulador (preservados no Traccar).`;
+  } else if (importedCount > 0) {
+    msg += `\n\n• Todos os ${importedCount} veículos selecionados são importados e serão removidos APENAS do simulador (preservados no Traccar).`;
+  } else {
+    msg += `\n\n• Todos os ${fakesCount} veículos selecionados são sintéticos e serão removidos de ambos (simulador e Traccar).`;
+  }
+
   openConfirmDeleteModal(
     'Excluir Veículos em Lote',
-    `Alerta Crítico: Tem certeza que deseja remover os ${count} veículos selecionados? Esta ação finalizará a simulação destes veículos.`,
+    msg,
     async () => {
       const uids = Array.from(selectedFleetVehicleIds);
       await fetch('/api/simulation/vehicles/delete-batch', {
@@ -3854,7 +3914,6 @@ window.confirmDeleteSelectedVehicles = function() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           uniqueIds: uids,
-          deleteInTraccar: true,
           traccarUrl: creds.url,
           traccarUser: creds.username,
           traccarPassword: creds.password
@@ -3872,6 +3931,7 @@ window.confirmDeleteSelectedVehicles = function() {
       updateFollowVehicleSelect();
       renderFleetTab();
       updateFleetSelectionUI();
+      renderHomeSidebarList();
     }
   );
 };
@@ -3882,11 +3942,36 @@ window.confirmClearAllFleet = function() {
     return;
   }
 
+  const creds = getTraccarCredentials();
+  let fakesCount = 0;
+  let importedCount = 0;
+  activeVehiclesMap.forEach(v => {
+    if (v.isImported) importedCount++;
+    else fakesCount++;
+  });
+
+  let msg = `Tem certeza que deseja remover TODOS os ${activeVehiclesMap.size} veículos da simulação?`;
+  if (fakesCount > 0 && importedCount > 0) {
+    msg += `\n\n• ${fakesCount} veículos sintéticos serão removidos do simulador e do Traccar.\n• ${importedCount} veículos importados serão removidos APENAS do simulador (preservados no Traccar).`;
+  } else if (importedCount > 0) {
+    msg += `\n\n• Todos os ${importedCount} veículos são importados e serão removidos APENAS do simulador (preservados no Traccar).`;
+  } else {
+    msg += `\n\n• Todos os veículos sintéticos serão removidos do simulador e do Traccar.`;
+  }
+
   openConfirmDeleteModal(
     'Limpar Toda a Frota',
-    `Tem certeza que deseja remover TODOS os ${activeVehiclesMap.size} veículos da simulação?`,
+    msg,
     async () => {
-      await fetch('/api/simulation/vehicles', { method: 'DELETE' });
+      await fetch('/api/simulation/vehicles', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          traccarUrl: creds.url,
+          traccarUser: creds.username,
+          traccarPassword: creds.password
+        })
+      });
       mapManager.clearVehicles();
       activeVehiclesMap.clear();
       selectedFleetVehicleIds.clear();
@@ -4004,7 +4089,13 @@ function renderHomeSidebarList() {
 
   const countBadge = document.getElementById('homeSidebarCountBadge');
   if (countBadge) {
-    countBadge.innerText = `${activeVehiclesMap.size} ativo${activeVehiclesMap.size !== 1 ? 's' : ''}`;
+    let fakes = 0;
+    let imported = 0;
+    activeVehiclesMap.forEach(v => {
+      if (v.isImported) imported++;
+      else fakes++;
+    });
+    countBadge.innerText = `${activeVehiclesMap.size} ativos (${fakes} ⚡ | ${imported} 📥)`;
   }
 
   const filterText = (document.getElementById('homeFilterVehicleSearch')?.value || '').toLowerCase();
@@ -4085,6 +4176,7 @@ function renderHomeSidebarList() {
       card.dataset.state = v.state;
       card.dataset.focused = String(isFocused);
       card.dataset.pills = pillsKey;
+      card.dataset.isImported = String(!!v.isImported);
 
       card.innerHTML = `
         <!-- Ícone do Carro com cor do estado + Identificação -->
@@ -4093,8 +4185,9 @@ function renderHomeSidebarList() {
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>
           </div>
           <div class="min-w-0">
-            <div class="sidebar-card-name font-bold text-xs ${isFocused ? 'text-sky-300' : 'text-white'} group-hover:text-sky-400 transition-colors truncate">
-              ${v.name}
+            <div class="sidebar-card-name font-bold text-xs ${isFocused ? 'text-sky-300' : 'text-white'} group-hover:text-sky-400 transition-colors truncate flex items-center gap-1.5">
+              <span>${v.isImported ? '📥' : '⚡'}</span>
+              <span class="truncate">${v.name}</span>
             </div>
             <div class="text-[10px] text-slate-400 font-mono truncate">
               ID: ${v.uniqueId}
@@ -4132,6 +4225,14 @@ function renderHomeSidebarList() {
             nameEl.classList.remove('text-sky-300');
             nameEl.classList.add('text-white');
           }
+        }
+      }
+
+      if (card.dataset.isImported !== String(!!v.isImported)) {
+        card.dataset.isImported = String(!!v.isImported);
+        const nameEl = card.querySelector('.sidebar-card-name');
+        if (nameEl) {
+          nameEl.innerHTML = `<span>${v.isImported ? '📥' : '⚡'}</span> <span class="truncate">${v.name}</span>`;
         }
       }
 

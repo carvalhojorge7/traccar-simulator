@@ -1,5 +1,11 @@
 # Traccar Fleet Simulator & Telemetry Injector 🚗📡
 
+[![PHP 8.2+](https://img.shields.io/badge/PHP-8.2%2B-777BB4?logo=php&logoColor=white)](https://www.php.net)
+[![Laravel 11](https://img.shields.io/badge/Laravel-11-FF2D20?logo=laravel&logoColor=white)](https://laravel.com)
+[![Docker Ready](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)](https://www.docker.com)
+[![Tests Passing](https://img.shields.io/badge/Tests-21%20Passing-success)](backend-laravel/tests)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 > **Nota sobre o desenvolvimento**:  
 > Toda a arquitetura, regras de negócio, física e serviços do **Backend (Laravel)** foram desenvolvidos por mim ([Jorge Carvalho](https://github.com/carvalhojorge7)).  
 > O **Frontend** foi construído via **Vibe Coding** como interface de apoio para consumir e demonstrar as capacidades do simulador.
@@ -51,6 +57,12 @@ Implementado com foco em engenharia de software e boas práticas no ecossistema 
   - Bloqueio remoto de combustível/motor (`blocked: true`).
   - Simulação de reboque/guincho sem ignição (`alarm: tow`).
   - Zona de Sombra com buffer offline em memória e descarregamento em rajada (*burst*).
+
+### 6. Segregação de Veículos: Sintéticos (⚡) vs Importados (📥) & Exclusão Segura
+- **Veículos Sintéticos / Fakes (⚡)**: Gerados pelo simulador para testes de carga e rotas urbanas. Ao serem removidos da simulação, são excluídos **tanto do simulador local quanto do servidor Traccar**, mantendo o ambiente limpo sem dispositivos fantasmas.
+- **Dispositivos Reais Importados (📥)**: Dispositivos existentes importados da sua base Traccar. Ao serem removidos da simulação, são excluídos **apenas do banco local do simulador**, permanecendo **100% preservados e intactos no servidor Traccar**.
+- **Distinção Visual em Tempo Real**: Ícones e badges dedicados (`📥` e `⚡`) presentes nos cards da frota, painel lateral do mapa, marcadores do Leaflet, popups e seletores de veículo.
+- **Diálogos de Exclusão Inteligentes**: Modais de confirmação calculam e discriminam explicitamente a quantidade de veículos que serão excluídos de ambos vs preservados no Traccar.
 
 ---
 
@@ -174,6 +186,12 @@ O painel e as APIs do simulador contam com proteção por controle de acesso:
 3. **Monitoramento & Operação**:
    - Monitore a frota ativa e os pacotes despachados pelo terminal ou pela tela inicial.
    - Utilize o cockpit de telemetria para testar bloqueios de motor, simulação de reboque, corte de chicote e descarregamento de buffer de sombra.
+
+---
+
+## 📋 Histórico de Versões & Changelog
+
+Todas as notas de versão, novas funcionalidades e correções detalhadas estão registradas em [CHANGELOG.md](CHANGELOG.md).
 
 ---
 

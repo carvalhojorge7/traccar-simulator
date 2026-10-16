@@ -93,12 +93,17 @@ class MapManager {
     if (state === 'TRAFFIC_STOP') iconColor = '#eab308'; // amarelo (parado)
     if (!ignition || state === 'PARKED_OFF') iconColor = '#ef4444'; // vermelho (desligado)
 
+    const originIcon = v.isImported ? '📥' : '⚡';
+    const originBadgeHtml = v.isImported
+      ? '<span style="display:inline-block;background:#e0f2fe;color:#0284c7;border:1px solid #bae6fd;padding:1px 6px;border-radius:9999px;font-size:10px;font-weight:700;">📥 Importado</span>'
+      : '<span style="display:inline-block;background:#f3e8ff;color:#7e22ce;border:1px solid #e9d5ff;padding:1px 6px;border-radius:9999px;font-size:10px;font-weight:700;">⚡ Sintético</span>';
+
     const iconHtml = `
       <div class="vehicle-marker-container">
         <svg class="vehicle-icon" style="transform: rotate(${bearing || 0}deg);" width="32" height="32" viewBox="0 0 24 24" fill="${iconColor}" stroke="#ffffff" stroke-width="1.5">
           <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/>
         </svg>
-        <div class="vehicle-label">${name.split(' - ')[1] || name} (${speedKmh} km/h)</div>
+        <div class="vehicle-label">${originIcon} ${name.split(' - ')[1] || name} (${speedKmh} km/h)</div>
       </div>
     `;
 
@@ -117,8 +122,11 @@ class MapManager {
     const displayState = stateLabels[state] || state;
 
     const popupHtml = `
-      <div class="text-slate-800 p-1">
-        <div class="font-bold text-sm text-slate-900">${name}</div>
+      <div class="text-slate-800 p-1 font-sans">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:4px;">
+          <div class="font-bold text-sm text-slate-900">${name}</div>
+          ${originBadgeHtml}
+        </div>
         <div class="text-xs text-slate-600">ID: ${uniqueId}</div>
         <div class="text-xs mt-1">Velocidade: <b>${speedKmh} km/h</b></div>
         <div class="text-xs">Ignição: <b>${ignition ? 'Ligada' : 'Desligada'}</b></div>

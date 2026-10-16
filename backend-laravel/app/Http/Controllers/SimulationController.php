@@ -336,6 +336,7 @@ class SimulationController extends Controller
                 'manualIgnition' => null,
                 'externalPowerCut' => false,
                 'engineBlocked' => false,
+                'isImported' => true,
                 'towingSim' => false,
                 'shadowZone' => false,
                 'offlineBuffer' => [],
@@ -620,7 +621,17 @@ class SimulationController extends Controller
             $carModels = ['Fiat Strada', 'VW Polo', 'Chevrolet Onix', 'Hyundai HB20', 'Toyota Corolla', 'Jeep Compass', 'Renault Kwid'];
             $truckModels = ['Mercedes-Benz Accelo', 'VW Delivery', 'Volvo FH 540', 'Scania R450', 'Iveco Daily'];
 
-            // Limpa frota anterior
+            // Limpa frota sintética anterior no Traccar (nunca remove veículos importados do Traccar)
+            $previousFakes = Vehicle::where('isImported', false)->pluck('uniqueId')->toArray();
+            if (!empty($previousFakes) && $createInTraccar && $traccarUrl && $traccarUser && $traccarPassword) {
+                foreach ($previousFakes as $prevUid) {
+                    try {
+                        $this->traccarService->deleteDevice($traccarUrl, $traccarUser, $traccarPassword, $prevUid);
+                    } catch (\Throwable $e) {}
+                }
+            }
+
+            // Limpa frota anterior no simulador
             Vehicle::truncate();
 
             $devicesToCreate = [];
@@ -722,6 +733,7 @@ class SimulationController extends Controller
                     'manualIgnition' => null,
                     'externalPowerCut' => false,
                     'engineBlocked' => false,
+                    'isImported' => false,
                     'towingSim' => false,
                     'shadowZone' => false,
                     'offlineBuffer' => [],
@@ -791,45 +803,79 @@ class SimulationController extends Controller
 
     /**
      * 5. Remoção de Veículos
+     * Regra de negócio:
+     * - Veículos importados do Traccar NÃO devem ser removidos do Traccar ao serem removidos do simulador (são excluídos apenas localmente).
+     * - Veículos criados/inseridos pelo simulador (sintéticos/fakes) DEVEM ser removidos em ambos (simulador e Traccar).
      */
     public function deleteVehicle(Request $request, string $uniqueId): JsonResponse
     {
-        $deleteInTraccar = (bool) $request->input('deleteInTraccar', false);
-        $traccarUrl = $request->input('traccarUrl');
-        $traccarUser = $request->input('traccarUser');
-        $traccarPassword = $request->input('traccarPassword');
+        $vehicle = Vehicle::where('uniqueId', $uniqueId)->first();
+        if (!$vehicle) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Veículo não encontrado.',
+            ], 404);
+        }
 
-        $deleted = Vehicle::where('uniqueId', $uniqueId)->delete();
+        $isImported = (bool) $vehicle->isImported;
+        $deleted = $vehicle->delete();
         $traccarRes = null;
 
-        if ($deleteInTraccar && $traccarUrl && $traccarUser && $traccarPassword) {
-            $traccarRes = $this->traccarService->deleteDevice($traccarUrl, $traccarUser, $traccarPassword, $uniqueId);
+        // Se NÃO for importado (é fake / inserido pelo simulador), remove obrigatoriamente do Traccar
+        if (!$isImported) {
+            $conf = Cache::get('traccar_config', []);
+            $traccarUrl = $request->input('traccarUrl', $conf['restUrl'] ?? 'http://localhost:8082');
+            $traccarUser = $request->input('traccarUser', $conf['username'] ?? '');
+            $traccarPassword = $request->input('traccarPassword', $conf['password'] ?? '');
+
+            if ($traccarUrl && $traccarUser && $traccarPassword) {
+                $traccarRes = $this->traccarService->deleteDevice($traccarUrl, $traccarUser, $traccarPassword, $uniqueId);
+            }
         }
 
         return response()->json([
             'success' => true,
             'uniqueId' => $uniqueId,
+            'isImported' => $isImported,
+            'isFake' => !$isImported,
             'removedFromSimulation' => (bool) $deleted,
+            'removedFromTraccar' => !$isImported,
             'traccarResult' => $traccarRes,
+            'message' => $isImported
+                ? 'Veículo importado removido do simulador e preservado no Traccar.'
+                : 'Veículo sintético removido do simulador e do Traccar.',
         ]);
     }
 
     public function deleteBatchVehicles(Request $request): JsonResponse
     {
         $uniqueIds = $request->input('uniqueIds', []);
-        $deleteInTraccar = (bool) $request->input('deleteInTraccar', false);
-        $traccarUrl = $request->input('traccarUrl');
-        $traccarUser = $request->input('traccarUser');
-        $traccarPassword = $request->input('traccarPassword');
-
         if (!is_array($uniqueIds) || empty($uniqueIds)) {
             return response()->json(['success' => false, 'message' => 'Nenhum identificador fornecido.'], 400);
         }
 
+        $vehicles = Vehicle::whereIn('uniqueId', $uniqueIds)->get();
+        $fakeUniqueIds = [];
+        $importedUniqueIds = [];
+
+        foreach ($vehicles as $v) {
+            if ($v->isImported) {
+                $importedUniqueIds[] = $v->uniqueId;
+            } else {
+                $fakeUniqueIds[] = $v->uniqueId;
+            }
+        }
+
         $count = Vehicle::whereIn('uniqueId', $uniqueIds)->delete();
 
-        if ($deleteInTraccar && $traccarUrl && $traccarUser && $traccarPassword) {
-            foreach ($uniqueIds as $uid) {
+        // Remove do Traccar APENAS os veículos sintéticos criados pelo simulador
+        $conf = Cache::get('traccar_config', []);
+        $traccarUrl = $request->input('traccarUrl', $conf['restUrl'] ?? 'http://localhost:8082');
+        $traccarUser = $request->input('traccarUser', $conf['username'] ?? '');
+        $traccarPassword = $request->input('traccarPassword', $conf['password'] ?? '');
+
+        if (!empty($fakeUniqueIds) && $traccarUrl && $traccarUser && $traccarPassword) {
+            foreach ($fakeUniqueIds as $uid) {
                 try {
                     $this->traccarService->deleteDevice($traccarUrl, $traccarUser, $traccarPassword, $uid);
                 } catch (\Throwable $e) {}
@@ -840,14 +886,40 @@ class SimulationController extends Controller
             'success' => true,
             'removedCount' => $count,
             'removedIds' => $uniqueIds,
+            'removedFakesFromTraccar' => $fakeUniqueIds,
+            'preservedInTraccar' => $importedUniqueIds,
+            'message' => count($fakeUniqueIds) . ' veículos sintéticos removidos de ambos e ' . count($importedUniqueIds) . ' veículos importados removidos apenas do simulador.',
         ]);
     }
 
-    public function clearAllVehicles(): JsonResponse
+    public function clearAllVehicles(Request $request): JsonResponse
     {
+        $conf = Cache::get('traccar_config', []);
+        $traccarUrl = $request->input('traccarUrl', $conf['restUrl'] ?? 'http://localhost:8082');
+        $traccarUser = $request->input('traccarUser', $conf['username'] ?? '');
+        $traccarPassword = $request->input('traccarPassword', $conf['password'] ?? '');
+
+        // Remove do Traccar apenas os fakes gerados pelo simulador
+        $fakeUniqueIds = Vehicle::where('isImported', false)->pluck('uniqueId')->toArray();
+        $importedCount = Vehicle::where('isImported', true)->count();
+
+        if (!empty($fakeUniqueIds) && $traccarUrl && $traccarUser && $traccarPassword) {
+            foreach ($fakeUniqueIds as $uid) {
+                try {
+                    $this->traccarService->deleteDevice($traccarUrl, $traccarUser, $traccarPassword, $uid);
+                } catch (\Throwable $e) {}
+            }
+        }
+
         Vehicle::truncate();
         TelemetryLog::truncate();
-        return response()->json(['success' => true, 'message' => 'Todos os veículos da simulação foram removidos.']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Simulação resetada. ' . count($fakeUniqueIds) . ' veículos sintéticos foram removidos do Traccar; ' . $importedCount . ' veículos importados foram preservados no Traccar.',
+            'removedFakesFromTraccar' => $fakeUniqueIds,
+            'preservedInTraccarCount' => $importedCount,
+        ]);
     }
 
     /**
