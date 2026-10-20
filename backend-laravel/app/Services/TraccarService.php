@@ -614,7 +614,7 @@ class TraccarService
             'lat' => number_format((float) $data['lat'], 6, '.', ''),
             'lon' => number_format((float) $data['lon'], 6, '.', ''),
             'timestamp' => (int) ($data['timestamp'] ?? time()),
-            'speed' => number_format((float) ($data['speedKnots'] ?? 0), 2, '.', ''),
+            'speed' => number_format((float) ($data['speedKmh'] ?? $data['speed'] ?? ($data['speedKnots'] ? $data['speedKnots'] * 1.852 : 0)), 2, '.', ''),
             'bearing' => number_format((float) ($data['bearing'] ?? 0), 1, '.', ''),
             'altitude' => number_format((float) ($data['altitude'] ?? 10), 1, '.', ''),
             'accuracy' => number_format((float) ($data['accuracy'] ?? 4.5), 1, '.', ''),
