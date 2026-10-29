@@ -31,7 +31,8 @@ class SimulationController extends Controller
             'password' => 'admin',
             'osmandHost' => 'localhost',
             'osmandPort' => 5055,
-            'sendIntervalSeconds' => 3,
+            'sendIntervalSeconds' => 30,
+            'headingThresholdDegrees' => 15.0,
         ];
         $config = Cache::get('traccar_config', $default);
         return response()->json([
@@ -49,7 +50,8 @@ class SimulationController extends Controller
             'password' => $request->input('password', $existing['password'] ?? 'admin'),
             'osmandHost' => $request->input('osmandHost', $existing['osmandHost'] ?? 'localhost'),
             'osmandPort' => (int) $request->input('osmandPort', $existing['osmandPort'] ?? 5055),
-            'sendIntervalSeconds' => (int) $request->input('sendIntervalSeconds', $existing['sendIntervalSeconds'] ?? 3),
+            'sendIntervalSeconds' => (int) $request->input('sendIntervalSeconds', $existing['sendIntervalSeconds'] ?? 30),
+            'headingThresholdDegrees' => (float) $request->input('headingThresholdDegrees', $existing['headingThresholdDegrees'] ?? 15.0),
         ]);
 
         Cache::forever('traccar_config', $config);
@@ -359,7 +361,8 @@ class SimulationController extends Controller
             'password' => $newPassword,
             'osmandHost' => $newOsmandHost,
             'osmandPort' => $newOsmandPort,
-            'sendIntervalSeconds' => (int) ($existingConf['sendIntervalSeconds'] ?? 3),
+            'sendIntervalSeconds' => (int) ($existingConf['sendIntervalSeconds'] ?? 30),
+            'headingThresholdDegrees' => (float) ($existingConf['headingThresholdDegrees'] ?? 15.0),
         ]));
 
         Cache::put('simulation_is_paused', false);
@@ -613,7 +616,8 @@ class SimulationController extends Controller
                 'password' => $traccarPassword,
                 'osmandHost' => $osmandHost,
                 'osmandPort' => $osmandPort,
-                'sendIntervalSeconds' => 3,
+                'sendIntervalSeconds' => 30,
+                'headingThresholdDegrees' => 15.0,
             ]);
 
             // Modelos de veículos e placas realistas (Padrão Mercosul)

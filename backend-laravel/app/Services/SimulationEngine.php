@@ -40,7 +40,8 @@ class SimulationEngine
         $cachedConfig = Cache::get('traccar_config', []);
         $osmandHost = $traccarConfig['osmandHost'] ?? ($cachedConfig['osmandHost'] ?? config('services.traccar.osmand_host', 'localhost'));
         $osmandPort = (int) ($traccarConfig['osmandPort'] ?? ($cachedConfig['osmandPort'] ?? config('services.traccar.osmand_port', 5055)));
-        $sendInterval = (int) ($traccarConfig['sendIntervalSeconds'] ?? ($cachedConfig['sendIntervalSeconds'] ?? 3));
+        $sendInterval = (int) ($traccarConfig['sendIntervalSeconds'] ?? ($cachedConfig['sendIntervalSeconds'] ?? 30));
+        $headingThreshold = (float) ($traccarConfig['headingThresholdDegrees'] ?? ($cachedConfig['headingThresholdDegrees'] ?? 15.0));
 
         $vehicles = Vehicle::all();
 
@@ -49,15 +50,34 @@ class SimulationEngine
 
             $v->timeSinceLastSend = ($v->timeSinceLastSend ?? 0) + 1;
 
-            // Se atingiu o intervalo de envio ou tem alarme pendente, despacha telemetria
-            if ($v->timeSinceLastSend >= $sendInterval || !empty($v->pendingAlarm)) {
+            if ($v->lastSentBearing === null) {
+                $v->lastSentBearing = (float) $v->bearing;
+            }
+
+            // Verificação de disparo por mudança de ângulo/curva
+            $angleTriggered = false;
+            if ($v->motion && $v->speedKmh > 3.0 && $v->lastSentBearing !== null) {
+                $angleDiff = abs((float) $v->bearing - (float) $v->lastSentBearing);
+                if ($angleDiff > 180.0) {
+                    $angleDiff = 360.0 - $angleDiff;
+                }
+                // Se a curva ultrapassou o limiar (ex: >= 15°) e tiver pelo menos 2s do último envio para evitar flood
+                if ($angleDiff >= $headingThreshold && $v->timeSinceLastSend >= 2) {
+                    $angleTriggered = true;
+                }
+            }
+
+            // Se atingiu o intervalo periódico (30s), tem alarme pendente ou houve mudança de ângulo em curva
+            if ($v->timeSinceLastSend >= $sendInterval || !empty($v->pendingAlarm) || $angleTriggered) {
                 $v->timeSinceLastSend = 0;
+                $v->lastSentBearing = (float) $v->bearing;
                 $logEntry = $this->dispatchTelemetryToTraccar($v, $osmandHost, $osmandPort);
                 if ($logEntry) {
                     $dispatchedLogs[] = [
                         'uniqueId' => $v->uniqueId,
                         'name' => $v->name,
                         'log' => $logEntry,
+                        'trigger' => $angleTriggered ? 'angle_change' : (!empty($v->pendingAlarm) ? 'alarm' : 'timer'),
                     ];
                 }
             }

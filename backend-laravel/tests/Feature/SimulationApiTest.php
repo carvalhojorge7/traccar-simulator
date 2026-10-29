@@ -294,4 +294,63 @@ class SimulationApiTest extends TestCase
 
         $this->assertEquals(0, Vehicle::count());
     }
+
+    public function test_traccar_config_defaults_to_30s_interval_and_heading_threshold(): void
+    {
+        $res = $this->getJson('/api/traccar/config');
+
+        $res->assertStatus(200)
+            ->assertJson([
+                'success' => true,
+                'config' => [
+                    'sendIntervalSeconds' => 30,
+                    'headingThresholdDegrees' => 15.0,
+                ],
+            ]);
+    }
+
+    public function test_simulation_engine_dispatches_telemetry_on_heading_change(): void
+    {
+        $vehicle = Vehicle::create([
+            'uniqueId' => '999111222',
+            'name' => 'Curva Teste',
+            'model' => 'OsmAnd',
+            'category' => 'car',
+            'profile' => 'CAR',
+            'currentLat' => -23.55,
+            'currentLon' => -46.63,
+            'bearing' => 90.0,
+            'lastSentBearing' => 0.0, // Variação de 90° em relação ao último envio
+            'speedKmh' => 40.0,
+            'motion' => true,
+            'ignition' => true,
+            'timeSinceLastSend' => 3, // Bem menor que 30s
+            'routePoints' => [
+                ['lat' => -23.55, 'lon' => -46.63],
+                ['lat' => -23.56, 'lon' => -46.64],
+            ],
+        ]);
+
+        $mockTraccar = $this->mock(\App\Services\TraccarService::class);
+        $mockTraccar->shouldReceive('sendOsmAndTelemetry')
+            ->once()
+            ->andReturn([
+                'success' => true,
+                'status' => 200,
+                'message' => 'OK',
+            ]);
+
+        $engine = app(\App\Services\SimulationEngine::class);
+        $tickResult = $engine->tick(1.0, [
+            'sendIntervalSeconds' => 30,
+            'headingThresholdDegrees' => 15.0,
+        ]);
+
+        $this->assertNotEmpty($tickResult['dispatchedLogs']);
+        $this->assertEquals('angle_change', $tickResult['dispatchedLogs'][0]['trigger']);
+
+        $vehicle->refresh();
+        $this->assertEquals(0, $vehicle->timeSinceLastSend);
+        $this->assertEquals($vehicle->bearing, $vehicle->lastSentBearing);
+    }
 }

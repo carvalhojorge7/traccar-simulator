@@ -1901,6 +1901,8 @@ function getTraccarCredentials() {
     password: document.getElementById('traccarPass')?.value.trim() || 'admin',
     osmandHost: document.getElementById('traccarOsmandHost')?.value.trim() || undefined,
     osmandPort: document.getElementById('traccarOsmandPort')?.value.trim() || 5055,
+    sendIntervalSeconds: document.getElementById('simSendInterval')?.value ? parseInt(document.getElementById('simSendInterval').value, 10) : 30,
+    headingThresholdDegrees: document.getElementById('simHeadingThreshold')?.value ? parseFloat(document.getElementById('simHeadingThreshold').value) : 15.0,
   };
 }
 
@@ -1953,6 +1955,12 @@ async function loadSavedTraccarConfig() {
         document.getElementById('traccarOsmandPort').value = cfg.osmandPort;
         const label = document.getElementById('labelTestPort');
         if (label) label.innerText = `2. Testar Porta :${cfg.osmandPort}`;
+      }
+      if (document.getElementById('simSendInterval')) {
+        document.getElementById('simSendInterval').value = cfg.sendIntervalSeconds ?? 30;
+      }
+      if (document.getElementById('simHeadingThreshold')) {
+        document.getElementById('simHeadingThreshold').value = cfg.headingThresholdDegrees ?? 15.0;
       }
     }
   } catch (err) {

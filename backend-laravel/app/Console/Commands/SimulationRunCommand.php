@@ -49,7 +49,8 @@ class SimulationRunCommand extends Command
         $traccarConfig = [
             'osmandHost' => $osmandHost,
             'osmandPort' => $osmandPort,
-            'sendIntervalSeconds' => 3,
+            'sendIntervalSeconds' => 30,
+            'headingThresholdDegrees' => 15.0,
         ];
 
         Cache::put('simulation_is_running', true, 30);
@@ -68,12 +69,14 @@ class SimulationRunCommand extends Command
             $cachedConfig = Cache::get('traccar_config', []);
             $activeHost = !empty($cachedConfig['osmandHost']) ? $cachedConfig['osmandHost'] : $osmandHost;
             $activePort = !empty($cachedConfig['osmandPort']) ? (int) $cachedConfig['osmandPort'] : $osmandPort;
-            $activeInterval = !empty($cachedConfig['sendIntervalSeconds']) ? (int) $cachedConfig['sendIntervalSeconds'] : 3;
+            $activeInterval = !empty($cachedConfig['sendIntervalSeconds']) ? (int) $cachedConfig['sendIntervalSeconds'] : 30;
+            $activeHeadingThreshold = !empty($cachedConfig['headingThresholdDegrees']) ? (float) $cachedConfig['headingThresholdDegrees'] : 15.0;
 
             $currentTraccarConfig = array_merge($cachedConfig, [
                 'osmandHost' => $activeHost,
                 'osmandPort' => $activePort,
                 'sendIntervalSeconds' => $activeInterval,
+                'headingThresholdDegrees' => $activeHeadingThreshold,
             ]);
 
             // Verifica se a simulação não foi pausada via API
